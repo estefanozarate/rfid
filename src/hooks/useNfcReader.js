@@ -25,6 +25,7 @@ const parseNdefRecords = (ndefMessage) => {
   }));
 };
 
+// Tecnologías en orden de prioridad — se prueban de una en una
 const TECHNOLOGIES_TO_TRY = [
   NfcTech.NfcA,
   NfcTech.NfcB,
@@ -63,7 +64,6 @@ export const useNfcReader = () => {
     }
   }, []);
 
-  // Limpieza centralizada — siempre segura de llamar
   const _cleanup = useCallback(async () => {
     if (connectedTechRef.current) {
       try { await NfcManager.close(connectedTechRef.current); } catch { /* silent */ }
@@ -97,69 +97,99 @@ export const useNfcReader = () => {
     sessionActiveRef.current = true;
     connectedTechRef.current = null;
 
+    let succeededTech = null;
+    let tag = null;
+
     try {
-      // FIX: pasar el array completo de tecnologías en lugar de iterar manualmente.
-      // La librería selecciona la tecnología compatible automáticamente,
-      // evitando las excepciones intermedias que causaban el crash en Android.
-      await NfcManager.requestTechnology(TECHNOLOGIES_TO_TRY, {
-        alertMessage: 'Acerca el tag RFID al teléfono',
-      });
-
-      // Primera lectura del tag (antes de connect)
-      const tag = await NfcManager.getTag();
-      if (!tag) throw new Error('No se pudo leer el tag. Intenta de nuevo.');
-
-      // Conectar con la primera tecnología que acepte el tag
+      // Intentar cada tecnología de una en una.
+      // requestTechnology recibe UN string (no array) — requerido en Android.
+      // Cada intento espera a que el usuario acerque el tag.
       for (const tech of TECHNOLOGIES_TO_TRY) {
+        if (!sessionActiveRef.current) break;
+
         try {
-          await NfcManager.connect(tech);
-          connectedTechRef.current = tech;
+          await NfcManager.requestTechnology(tech, {
+            alertMessage: 'Acerca el tag NFC al teléfono',
+          });
+
+          // Si llegamos aquí, el tag fue detectado con esta tech
+          succeededTech = tech;
+
+          // Conectar antes de leer
+          try {
+            await NfcManager.connect(tech);
+            connectedTechRef.current = tech;
+          } catch { /* connect no siempre es necesario */ }
+
+          // Leer el tag
+          tag = await NfcManager.getTag();
+
+          // Salir del loop — tag leído con éxito
           break;
-        } catch { /* probar la siguiente */ }
+
+        } catch (techErr) {
+          const msg = techErr?.message || '';
+
+          // Si el usuario canceló — propagar el error y salir
+          if (
+            msg.includes('cancelled') ||
+            msg.includes('cancel') ||
+            msg.includes('UserCancel')
+          ) {
+            throw techErr;
+          }
+
+          // FIX: limpiar la sesión ANTES de intentar la siguiente tech
+          // Esto evita el IllegalStateException en Android
+          try { await NfcManager.cancelTechnologyRequest(); } catch { /* silent */ }
+
+          // Tech no compatible con este tag — probar la siguiente
+          continue;
+        }
       }
 
-      // Segunda lectura tras connect — datos más completos
-      const fullTag = await NfcManager.getTag();
-      const finalTag = fullTag || tag;
+      if (!tag) {
+        throw new Error('No se pudo leer el tag. Intenta de nuevo.');
+      }
 
-      // Construir UID
-      const uid = finalTag.id
-        ? bytesToHex(finalTag.id)
-        : finalTag.nfcid
-        ? bytesToHex(finalTag.nfcid)
+      // Construir resultado
+      const uid = tag.id
+        ? bytesToHex(tag.id)
+        : tag.nfcid
+        ? bytesToHex(tag.nfcid)
         : 'No disponible';
 
-      const detectedTechLabel = connectedTechRef.current
-        ? (TECH_LABELS[connectedTechRef.current] || connectedTechRef.current)
+      const techLabel = succeededTech
+        ? (TECH_LABELS[succeededTech] || succeededTech)
         : 'Desconocido';
 
       let techSpecificData = {};
-      if (connectedTechRef.current === NfcTech.NfcA) {
+      if (succeededTech === NfcTech.NfcA) {
         techSpecificData = {
-          atqa: finalTag.atqa ? bytesToHex(finalTag.atqa) : null,
-          sak:  finalTag.sak  ? `0x${finalTag.sak.toString(16).toUpperCase()}` : null,
+          atqa: tag.atqa ? bytesToHex(tag.atqa) : null,
+          sak:  tag.sak  ? `0x${tag.sak.toString(16).toUpperCase()}` : null,
         };
       }
-      if (connectedTechRef.current === NfcTech.NfcV) {
+      if (succeededTech === NfcTech.NfcV) {
         techSpecificData = {
-          dsfId:         finalTag.dsfId         ?? null,
-          responseFlags: finalTag.responseFlags ?? null,
+          dsfId:         tag.dsfId         ?? null,
+          responseFlags: tag.responseFlags ?? null,
         };
       }
 
-      const ndefRecords = finalTag.ndefMessage
-        ? parseNdefRecords(finalTag.ndefMessage)
+      const ndefRecords = tag.ndefMessage
+        ? parseNdefRecords(tag.ndefMessage)
         : [];
 
       setTagData({
         uid,
-        technology:      detectedTechLabel,
-        techRaw:         connectedTechRef.current,
-        maxSize:         finalTag.maxSize         ?? null,
-        isWritable:      finalTag.isWritable      ?? null,
-        canMakeReadOnly: finalTag.canMakeReadOnly ?? null,
+        technology:      techLabel,
+        techRaw:         succeededTech,
+        maxSize:         tag.maxSize         ?? null,
+        isWritable:      tag.isWritable      ?? null,
+        canMakeReadOnly: tag.canMakeReadOnly ?? null,
         ndefRecords,
-        rawTag:          finalTag,
+        rawTag:          tag,
         ...techSpecificData,
         scannedAt: new Date().toISOString(),
       });
