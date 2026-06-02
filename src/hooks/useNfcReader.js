@@ -66,7 +66,7 @@ export const useNfcReader = () => {
 
   const _cleanup = useCallback(async () => {
     if (connectedTechRef.current) {
-      try { await NfcManager.close(connectedTechRef.current); } catch { /* silent */ }
+      try { await NfcManager.close(); } catch { /* silent */ }
       connectedTechRef.current = null;
     }
     try { await NfcManager.cancelTechnologyRequest(); } catch { /* silent */ }
