@@ -114,12 +114,7 @@ export const useNfcReader = () => {
 
           // Si llegamos aquí, el tag fue detectado con esta tech
           succeededTech = tech;
-
-          // Conectar antes de leer
-          try {
-            await NfcManager.connect(tech);
-            connectedTechRef.current = tech;
-          } catch { /* connect no siempre es necesario */ }
+          connectedTechRef.current = tech;
 
           // Leer el tag
           tag = await NfcManager.getTag();
