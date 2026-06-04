@@ -1,22 +1,20 @@
 /**
- * App.js — Punto de entrada de la aplicación stamping.io RFID Reader
+ * App.js
  * ──────────────────────────────────────────────────────────
- *
- * Árbol de componentes:
- *   <SafeAreaProvider>          ← Márgenes seguros (notch, home bar, etc.)
- *     <AppNavigator>            ← Stack de navegación
- *       ├── WelcomeScreen       ← Pantalla 1: Bienvenida
- *       └── ScannerScreen       ← Pantalla 2: Lector RFID real
- *
- * Nota: Este archivo es minimalista a propósito.
- * La lógica de negocio vive en hooks/ y screens/.
+ * Punto de entrada. Inicializa la DB SQLite al arrancar.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
+import { initDatabase } from './src/db/database';
 
 export default function App() {
+  useEffect(() => {
+    // Inicializa SQLite y crea tabla personas con seed
+    initDatabase();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AppNavigator />
