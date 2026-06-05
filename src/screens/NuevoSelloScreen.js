@@ -12,6 +12,7 @@ import { signPayload, hasWallet } from '../services/walletService';
 import { useNfcWriter } from '../hooks/useNfcWriter';
 import NfcSheet from '../components/NfcSheet';
 import { insertSello } from '../db/sellosRepository';
+import { hashTrama } from '../utils/hash';
 
 const { width } = Dimensions.get('window');
 const isTablet  = width >= 768;
@@ -106,6 +107,7 @@ const NuevoSelloScreen = ({ navigation }) => {
       setNfcMsg('Documento sellado correctamente');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const id = insertSello({
+        trama_hash: hashTrama(parsed.raw),
         trama: parsed.raw, doc_id: parsed.docId, firmante_id: parsed.id,
         tipo_doc: parsed.tipo === '1' ? 'DNI' : 'RUC', num_id: parsed.numero,
         fecha_venc: parsed.fecha, texto_libre: parsed.textoLibre,

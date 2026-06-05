@@ -12,6 +12,7 @@ import { verifySignature } from '../services/walletService';
 import { useNfcNdefReader } from '../hooks/useNfcNdefReader';
 import NfcSheet from '../components/NfcSheet';
 import { insertValidacion } from '../db/validacionesRepository';
+import { hashTrama } from '../utils/hash';
 import { getWhitelist } from '../db/whitelistRepository';
 
 const { width } = Dimensions.get('window');
@@ -111,10 +112,19 @@ const NuevaValidacionScreen = ({ navigation }) => {
       : Haptics.NotificationFeedbackType.Error);
 
     insertValidacion({
-      trama: parsed.raw, doc_id: parsed.docId, firmante_id: parsed.id,
-      firma_hex: firmaHex, address_found: res.address || '',
-      resultado: verified ? 'valido' : 'invalido',
-      detalle: res.detalle, nfc_uid: result.uid,
+      trama_hash:    hashTrama(parsed.raw),
+      trama:         parsed.raw,
+      doc_id:        parsed.docId,
+      firmante_id:   parsed.id,
+      tipo_doc:      parsed.tipo === '1' ? 'DNI' : 'RUC',
+      num_id:        parsed.numero,
+      fecha_venc:    parsed.fecha,
+      texto_libre:   parsed.textoLibre,
+      firma_hex:     firmaHex,
+      address_found: res.address || '',
+      resultado:     verified ? 'valido' : 'invalido',
+      detalle:       res.detalle,
+      nfc_uid:       result.uid,
     });
   };
 

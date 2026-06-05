@@ -1,163 +1,161 @@
-/**
- * screens/InicioScreen.js
- * Dashboard principal con wallet mini y accesos rápidos.
- */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, ActivityIndicator,
+  SafeAreaView, ScrollView, ActivityIndicator, Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
-import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { RFontSize, rs } from '../utils/responsive';
 import Icon from '../components/Icon';
-import { hasWallet, loadWallet, generateWallet, registerWalletOnServer } from '../services/walletService';
-import { countWhitelist } from '../db/whitelistRepository';
+import { loadWallet } from '../services/walletService';
 import { getAllSellos } from '../db/sellosRepository';
-import { getAllValidaciones } from '../db/validacionesRepository';
-
-const StatCard = ({ label, value, color }) => (
-  <View style={styles.statCard}>
-    <Text style={[styles.statValue, { color: color || Colors.accent }]}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
-);
-
-const ActionRow = ({ icon, title, subtitle, color, onPress }) => (
-  <TouchableOpacity style={styles.actionRow} onPress={onPress} activeOpacity={0.75}>
-    <View style={[styles.actionIcon, { backgroundColor: color + '22' }]}>
-      <Text style={{ fontSize: 22 }}>{icon}</Text>
-    </View>
-    <View style={styles.actionText}>
-      <Text style={styles.actionTitle}>{title}</Text>
-      <Text style={styles.actionSub}>{subtitle}</Text>
-    </View>
-    <Text style={styles.actionArrow}>›</Text>
-  </TouchableOpacity>
-);
+import { getDocumentosValidados } from '../db/validacionesRepository';
+import { countWhitelist } from '../db/whitelistRepository';
 
 const InicioScreen = ({ navigation }) => {
-  const [wallet,       setWallet]       = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [creating,     setCreating]     = useState(false);
-  const [whitelistCnt, setWhitelistCnt] = useState(0);
-  const [sellosCnt,    setSellosCnt]    = useState(0);
-  const [validCnt,     setValidCnt]     = useState(0);
+  const { theme, isDark, toggleTheme } = useTheme();
+  const [wallet,       setWallet]       = React.useState(null);
+  const [sellosCnt,    setSellosCnt]    = React.useState(0);
+  const [validCnt,     setValidCnt]     = React.useState(0);
+  const [whitelistCnt, setWhitelistCnt] = React.useState(0);
+  const [loading,      setLoading]      = React.useState(true);
 
   const loadData = useCallback(async () => {
     const w = await loadWallet();
     setWallet(w);
-    setWhitelistCnt(countWhitelist());
     setSellosCnt(getAllSellos().length);
-    setValidCnt(getAllValidaciones().length);
+    setValidCnt(getDocumentosValidados().length);
+    setWhitelistCnt(countWhitelist());
     setLoading(false);
   }, []);
 
   useEffect(() => { loadData(); }, []);
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 
-  const handleCreateWallet = async () => {
-    setCreating(true);
-    try {
-      const w = await generateWallet();
-      await registerWalletOnServer('Mi Wallet');
-      setWallet(w);
-    } catch (e) {
-      console.warn('[Inicio] createWallet error:', e);
-    } finally { setCreating(false); }
-  };
+  const t = theme;
 
   if (loading) return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.centered}><ActivityIndicator color={Colors.accent} size="large" /></View>
+    <SafeAreaView style={{ flex:1, backgroundColor: t.bg, alignItems:'center', justifyContent:'center' }}>
+      <ActivityIndicator color={t.accent} size="large" />
     </SafeAreaView>
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+    <SafeAreaView style={{ flex:1, backgroundColor: t.bg }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>NFC Sign</Text>
-          <Text style={styles.headerSub}>stamping.io · demo</Text>
+      {/* Header con logo */}
+      <View style={[styles.header, { backgroundColor: t.bgSurface, borderBottomColor: t.bgBorder }]}>
+        <View style={[styles.logoBg, { backgroundColor: t.brand }]}>
+          <Image
+            source={require('../../assets/logot_crop.png')}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
         </View>
-        <View style={styles.headerBadge}>
-          <View style={[styles.dot, { backgroundColor: wallet ? Colors.success : Colors.error }]} />
-          <Text style={styles.headerBadgeText}>{wallet ? 'Wallet activa' : 'Sin wallet'}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.appName, { color: t.textPrimary, fontSize: RFontSize.md }]}>
+            NFC Sign
+          </Text>
+          <Text style={[styles.appSub, { color: t.textSecondary, fontSize: RFontSize.xs }]}>
+            stamping.io · demo
+          </Text>
         </View>
+        <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn}>
+          <Icon name={isDark ? 'sun' : 'moon'} size={RFontSize.xl} color={t.textSecondary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: rs(Spacing.md) }]}
+        showsVerticalScrollIndicator={false}>
 
-        {/* Wallet card */}
+        {/* Wallet mini */}
         {wallet ? (
-          <View style={styles.walletCard}>
-            <Text style={styles.walletLabel}>Mi wallet</Text>
-            <Text style={styles.walletAddress} numberOfLines={1}>{wallet.address}</Text>
-            <View style={styles.walletRow}>
-              <View style={styles.walletBadge}><Text style={styles.walletBadgeText}>AUTORIZADO</Text></View>
-              <View style={styles.walletStatus}>
-                <View style={[styles.dot, { backgroundColor: Colors.success }]} />
-                <Text style={styles.walletStatusText}>
-                  {whitelistCnt} en lista blanca
-                </Text>
-              </View>
+          <View style={[styles.walletBar, { backgroundColor: t.brand }]}>
+            <View style={styles.walletDot}>
+              <View style={[styles.dot, { backgroundColor: t.success }]} />
+            </View>
+            <Text style={[styles.walletAddr, { fontSize: RFontSize.xs }]} numberOfLines={1}>
+              {wallet.address.slice(0,12)}...{wallet.address.slice(-8)}
+            </Text>
+            <View style={[styles.walletBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+              <Text style={[styles.walletBadgeTxt, { fontSize: RFontSize.xs - 1 }]}>
+                {whitelistCnt} autorizados
+              </Text>
             </View>
           </View>
         ) : (
-          <TouchableOpacity style={styles.createWalletCard} onPress={handleCreateWallet} disabled={creating}>
-            {creating ? (
-              <ActivityIndicator color={Colors.accent} />
-            ) : (
-              <>
-                <Text style={styles.createWalletIcon}>🔑</Text>
-                <Text style={styles.createWalletTitle}>Crear mi wallet</Text>
-                <Text style={styles.createWalletSub}>
-                  Genera tu identidad ECDSA para firmar documentos
-                </Text>
-              </>
-            )}
+          <TouchableOpacity
+            style={[styles.noWalletBar, { backgroundColor: t.bgCard, borderColor: t.bgBorder }]}
+            onPress={() => navigation.navigate('Main', { screen: 'WalletTab' })}
+          >
+            <Icon name="lockOpen" size={RFontSize.lg} color={t.accent} />
+            <Text style={[styles.noWalletTxt, { color: t.accent, fontSize: RFontSize.sm }]}>
+              Crear wallet para firmar documentos →
+            </Text>
           </TouchableOpacity>
         )}
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <StatCard label="Sellos" value={sellosCnt} color={Colors.accent} />
-          <StatCard label="Validaciones" value={validCnt} color={Colors.success} />
-          <StatCard label="Firmantes" value={whitelistCnt} color={Colors.warning} />
+          {[
+            { label: 'Sellos',      value: sellosCnt,    color: t.accent   },
+            { label: 'Validaciones', value: validCnt,    color: t.success  },
+            { label: 'Firmantes',   value: whitelistCnt, color: t.rose     },
+          ].map(({ label, value, color }) => (
+            <View key={label} style={[styles.statCard, { backgroundColor: t.bgCard, borderColor: t.bgBorder, flex: 1 }]}>
+              <Text style={[styles.statValue, { color, fontSize: RFontSize.xxl }]}>{value}</Text>
+              <Text style={[styles.statLabel, { color: t.textMuted, fontSize: RFontSize.xs }]}>{label}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Acciones rápidas */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Acciones rápidas</Text>
-          <View style={styles.actionsCard}>
-            <ActionRow
-              icon="🔏"
-              title="Nuevo sello"
-              subtitle="Escanear QR y firmar en NFC"
-              color={Colors.accent}
-              onPress={() => navigation.navigate('SellarTab', { screen: 'NuevoSello' })}
-            />
-            <View style={styles.divider} />
-            <ActionRow
-              icon="🛡️"
-              title="Nueva validación"
-              subtitle="Verificar firma en tag NFC"
-              color={Colors.success}
-              onPress={() => navigation.navigate('ValidarTab', { screen: 'NuevaValidacion' })}
-            />
-            <View style={styles.divider} />
-            <ActionRow
-              icon="👛"
-              title="Mi wallet"
-              subtitle="Ver address y lista blanca"
-              color={Colors.warning}
-              onPress={() => navigation.navigate('WalletTab')}
-            />
+        {/* Acciones principales */}
+        <Text style={[styles.sectionLabel, { color: t.textMuted, fontSize: RFontSize.xs }]}>
+          ACCIONES
+        </Text>
+
+        {/* Sellar */}
+        <TouchableOpacity
+          style={[styles.actionCard, styles.actionCardPrimary, { backgroundColor: t.accent }]}
+          onPress={() => navigation.navigate('SellarTab', { screen: 'NuevoSello' })}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.actionIconBox, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <Icon name="lock" size={RFontSize.xl} color="#fff" />
           </View>
-        </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.actionTitle, { color: '#fff', fontSize: RFontSize.lg }]}>
+              Sellar documento
+            </Text>
+            <Text style={[styles.actionSub, { color: 'rgba(255,255,255,0.75)', fontSize: RFontSize.sm }]}>
+              Escanear QR y firmar en tag NFC
+            </Text>
+          </View>
+          <Icon name="chevronRight" size={RFontSize.lg} color="rgba(255,255,255,0.6)" />
+        </TouchableOpacity>
+
+        {/* Validar */}
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: t.bgCard, borderColor: t.bgBorder, borderWidth: 1 }]}
+          onPress={() => navigation.navigate('ValidarTab', { screen: 'NuevaValidacion' })}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.actionIconBox, { backgroundColor: t.accentGlow }]}>
+            <Icon name="shield" size={RFontSize.xl} color={t.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.actionTitle, { color: t.textPrimary, fontSize: RFontSize.lg }]}>
+              Validar documento
+            </Text>
+            <Text style={[styles.actionSub, { color: t.textSecondary, fontSize: RFontSize.sm }]}>
+              Leer QR y verificar firma en NFC
+            </Text>
+          </View>
+          <Icon name="chevronRight" size={RFontSize.lg} color={t.textMuted} />
+        </TouchableOpacity>
 
       </ScrollView>
     </SafeAreaView>
@@ -165,51 +163,31 @@ const InicioScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.bg },
-  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:  { flex: 1 },
-  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
-
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1, borderBottomColor: Colors.bgBorder },
-  headerTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  headerSub:   { fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 0.5 },
-  headerBadge: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, backgroundColor: Colors.bgSurface, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.bgBorder },
-  headerBadgeText: { fontSize: FontSize.xs, color: Colors.textSecondary },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-
-  // Wallet card
-  walletCard: { backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.bgBorder, gap: Spacing.sm },
-  walletLabel: { fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 0.1, textTransform: 'uppercase' },
-  walletAddress: { fontSize: FontSize.sm, color: Colors.accent, fontFamily: 'monospace', letterSpacing: 0.3 },
-  walletRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  walletBadge: { paddingHorizontal: Spacing.sm, paddingVertical: 2, backgroundColor: Colors.accentGlow, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.accentDim },
-  walletBadgeText: { fontSize: 9, color: Colors.accent, fontWeight: FontWeight.bold, letterSpacing: 1 },
-  walletStatus: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  walletStatusText: { fontSize: FontSize.xs, color: Colors.textSecondary },
-
-  // Create wallet
-  createWalletCard: { backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, padding: Spacing.lg, borderWidth: 1, borderColor: Colors.bgBorder, borderStyle: 'dashed', alignItems: 'center', gap: Spacing.sm },
-  createWalletIcon:  { fontSize: 36 },
-  createWalletTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  createWalletSub:   { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
-
-  // Stats
-  statsRow: { flexDirection: 'row', gap: Spacing.sm },
-  statCard:  { flex: 1, backgroundColor: Colors.bgSurface, borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', borderWidth: 1, borderColor: Colors.bgBorder },
-  statValue: { fontSize: FontSize.xxl, fontWeight: FontWeight.black },
-  statLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
-
-  // Acciones
-  section:      { gap: Spacing.sm },
-  sectionTitle: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase', paddingHorizontal: 2 },
-  actionsCard:  { backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.bgBorder, overflow: 'hidden' },
-  actionRow:    { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md - 2, gap: Spacing.md },
-  actionIcon:   { width: 42, height: 42, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  actionText:   { flex: 1 },
-  actionTitle:  { fontSize: FontSize.md, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
-  actionSub:    { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
-  actionArrow:  { fontSize: 22, color: Colors.textMuted },
-  divider:      { height: 1, backgroundColor: Colors.bgBorder, marginLeft: Spacing.md + 42 + Spacing.md },
+  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: rs(Spacing.md), paddingVertical: rs(Spacing.sm), borderBottomWidth: 1, gap: rs(Spacing.sm) },
+  logoBg:      { borderRadius: Radius.md, padding: rs(6), height: rs(44), justifyContent: 'center' },
+  logoImg:     { height: rs(28), width: rs(90) },
+  appName:     { fontWeight: FontWeight.bold },
+  appSub:      { letterSpacing: 0.3, marginTop: 1 },
+  themeBtn:    { padding: rs(Spacing.sm) },
+  content:     { gap: rs(Spacing.md), paddingTop: rs(Spacing.md), paddingBottom: rs(Spacing.xxl) },
+  walletBar:   { borderRadius: Radius.md, paddingVertical: rs(Spacing.sm + 2), paddingHorizontal: rs(Spacing.md), flexDirection: 'row', alignItems: 'center', gap: rs(Spacing.sm) },
+  walletDot:   { flexDirection: 'row', alignItems: 'center' },
+  dot:         { width: 8, height: 8, borderRadius: 4 },
+  walletAddr:  { flex: 1, color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace' },
+  walletBadge: { borderRadius: Radius.full, paddingHorizontal: rs(8), paddingVertical: 2 },
+  walletBadgeTxt: { color: '#fff', fontWeight: FontWeight.medium },
+  noWalletBar: { borderRadius: Radius.md, padding: rs(Spacing.md), flexDirection: 'row', alignItems: 'center', gap: rs(Spacing.sm), borderWidth: 1, borderStyle: 'dashed' },
+  noWalletTxt: { fontWeight: FontWeight.medium },
+  statsRow:    { flexDirection: 'row', gap: rs(Spacing.sm) },
+  statCard:    { borderRadius: Radius.md, padding: rs(Spacing.md), alignItems: 'center', borderWidth: 1, gap: 2 },
+  statValue:   { fontWeight: FontWeight.black },
+  statLabel:   { letterSpacing: 0.3, textTransform: 'uppercase' },
+  sectionLabel:{ fontWeight: FontWeight.bold, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: -rs(4) },
+  actionCard:  { borderRadius: Radius.lg, padding: rs(Spacing.md), flexDirection: 'row', alignItems: 'center', gap: rs(Spacing.md) },
+  actionCardPrimary: { shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+  actionIconBox: { width: rs(48), height: rs(48), borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
+  actionTitle: { fontWeight: FontWeight.bold },
+  actionSub:   { marginTop: 2 },
 });
 
 export default InicioScreen;
