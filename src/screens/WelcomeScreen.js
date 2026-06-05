@@ -92,7 +92,7 @@ const WelcomeScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.btn}
             activeOpacity={1}
-            onPress={() => navigation.navigate('Dashboard')}
+            onPress={() => navigation.navigate('Main')}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             accessibilityLabel="Empezar"
