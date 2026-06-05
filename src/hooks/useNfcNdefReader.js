@@ -1,15 +1,17 @@
 /**
  * hooks/useNfcNdefReader.js
- * Lee el primer registro NDEF Text de un tag.
- * Retorna el texto plano (la firma hex guardada al sellar).
+ * Lee el primer registro NDEF Text de un tag NFC.
  */
 import { useState, useCallback } from 'react';
 import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
 
-const ndefTextPayloadToString = (payload) => {
+const ndefTextToString = (payload) => {
   if (!payload || payload.length === 0) return null;
-  const langLen = payload[0] & 0x3f;
-  return payload.slice(1 + langLen).map(c => String.fromCharCode(c)).join('');
+  try {
+    const langLen = payload[0] & 0x3f;
+    const textBytes = payload.slice(1 + langLen);
+    return textBytes.map(c => String.fromCharCode(c)).join('');
+  } catch { return null; }
 };
 
 export const useNfcNdefReader = () => {
@@ -30,31 +32,52 @@ export const useNfcNdefReader = () => {
     setNfcText(null);
 
     try {
-      await NfcManager.requestTechnology(NfcTech.Ndef, {
-        alertMessage: 'Acerca el tag NFC para verificar',
-      });
+      // 1. Verificar soporte y estado
+      const supported = await NfcManager.isSupported();
+      if (!supported) throw new Error('Este dispositivo no tiene hardware NFC.');
 
+      const enabled = await NfcManager.isEnabled();
+      if (!enabled) throw new Error('El NFC está desactivado. Actívalo en Ajustes → Conexiones → NFC.');
+
+      await NfcManager.start();
+
+      // 2. Solicitar tecnología NDEF
+      await NfcManager.requestTechnology(NfcTech.Ndef);
+
+      // 3. Leer tag
       const tag = await NfcManager.getTag();
+      console.log('[NFC] Tag leído:', JSON.stringify(tag));
+
       const uid = tag?.id
-        ? Array.from(tag.id).map(b => b.toString(16).padStart(2,'0')).join(':').toUpperCase()
+        ? Array.from(tag.id).map(b => b.toString(16).padStart(2, '0')).join(':').toUpperCase()
         : 'unknown';
       setNfcUid(uid);
 
+      // 4. Extraer mensaje NDEF
       const ndefMsg = tag?.ndefMessage;
-      if (!ndefMsg || ndefMsg.length === 0) throw new Error('Tag sin datos NDEF');
+      if (!ndefMsg || ndefMsg.length === 0) {
+        throw new Error('El tag no contiene datos NDEF. ¿Fue sellado correctamente?');
+      }
 
-      const record  = ndefMsg[0];
-      const text    = ndefTextPayloadToString(record.payload);
-      if (!text) throw new Error('No se pudo leer el registro NDEF');
+      const record = ndefMsg[0];
+      console.log('[NFC] Record TNF:', record.tnf, 'payload len:', record.payload?.length);
 
+      const text = ndefTextToString(record.payload);
+      if (!text) throw new Error('No se pudo decodificar el registro NDEF.');
+
+      console.log('[NFC] Texto leído:', text.slice(0, 20) + '...');
       setNfcText(text);
       return { success: true, text, uid };
+
     } catch (err) {
-      const msg = err?.message || 'Error al leer el tag';
+      const msg = err?.message || String(err) || 'Error desconocido al leer el tag';
+      console.warn('[NFC] readTag error:', msg);
       setError(msg);
       return { success: false, error: msg };
     } finally {
-      try { await NfcManager.cancelTechnologyRequest(); } catch {}
+      try { await NfcManager.cancelTechnologyRequest(); } catch (e) {
+        console.warn('[NFC] cancelTechnologyRequest:', e?.message);
+      }
       setIsReading(false);
     }
   }, []);
