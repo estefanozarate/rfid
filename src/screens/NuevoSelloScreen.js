@@ -1,95 +1,84 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, ActivityIndicator, Dimensions,
+  SafeAreaView, ScrollView, ActivityIndicator,
 } from 'react-native';
-import { useCameraPermissions } from 'expo-camera';
-import QRScanner from '../components/QRScanner';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
-import { parseTrama } from '../utils/tramaParser';
-import { signPayload, hasWallet } from '../services/walletService';
-import { useNfcWriter } from '../hooks/useNfcWriter';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
+import { RFontSize, rs } from '../utils/responsive';
+import ScreenHeader, { StepBar } from '../components/ScreenHeader';
+import QRScanner from '../components/QRScanner';
+import PinConfirmModal from '../components/PinConfirmModal';
 import NfcSheet from '../components/NfcSheet';
-import { insertSello } from '../db/sellosRepository';
+import Icon from '../components/Icon';
+import { parseTrama } from '../utils/tramaParser';
 import { hashTrama } from '../utils/hash';
+import { signPayload, hasWallet, hasPinSetup } from '../services/walletService';
+import { useNfcWriter } from '../hooks/useNfcWriter';
+import { insertSello } from '../db/sellosRepository';
 
-const { width } = Dimensions.get('window');
-const isTablet  = width >= 768;
-const fs        = (n) => isTablet ? n * 1.25 : n;
+const useCameraPermissions = require('expo-camera').useCameraPermissions;
 
-const STEP_SCAN = 'scan';
-const STEP_SIGN = 'sign';
-const STEP_NFC  = 'nfc';
-const STEP_DONE = 'done';
+const STEPS     = ['Escanear', 'Firmar', 'NFC', 'Listo'];
+const STEP_SCAN = 'Escanear';
+const STEP_SIGN = 'Firmar';
+const STEP_NFC  = 'NFC';
+const STEP_DONE = 'Listo';
 
-const StepBar = ({ step }) => {
-  const steps  = [STEP_SCAN, STEP_SIGN, STEP_NFC, STEP_DONE];
-  const labels = ['Escanear', 'Firmar', 'NFC', 'Listo'];
-  const idx    = steps.indexOf(step);
-  return (
-    <View style={styles.stepBar}>
-      {steps.map((s, i) => (
-        <React.Fragment key={s}>
-          <View style={styles.stepItem}>
-            <View style={[styles.stepDot, i <= idx && styles.stepDotActive]}>
-              <Text style={[styles.stepDotTxt, i <= idx && styles.stepDotTxtOn]}>
-                {i < idx ? '✓' : String(i + 1)}
-              </Text>
-            </View>
-            <Text style={[styles.stepLbl, i <= idx && styles.stepLblOn]}>{labels[i]}</Text>
-          </View>
-          {i < steps.length - 1 && <View style={[styles.stepLine, i < idx && styles.stepLineOn]} />}
-        </React.Fragment>
-      ))}
-    </View>
-  );
-};
-
-const DataRow = ({ label, value }) => (
+const DataRow = ({ label, value, theme }) => (
   <View style={styles.dataRow}>
-    <Text style={styles.dataLabel}>{label}</Text>
-    <Text style={styles.dataValue} numberOfLines={1}>{String(value || '—')}</Text>
+    <Text style={[styles.dataLabel, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>{label}</Text>
+    <Text style={[styles.dataValue, { color: theme.textPrimary, fontSize: RFontSize.sm }]} numberOfLines={1}>{String(value || '—')}</Text>
   </View>
 );
 
 const NuevoSelloScreen = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
+  const { showToast }     = useToast();
   const [permission, requestPermission] = useCameraPermissions();
   const [step,       setStep]     = useState(STEP_SCAN);
   const [scanned,    setScanned]  = useState(false);
   const [parsed,     setParsed]   = useState(null);
-  const [firmaHex,   setFirmaHex] = useState(null);
   const [signing,    setSigning]  = useState(false);
-  const [signError,  setSignError]= useState(null);
+  const [signError,  setSignError]= useState('');
+  const [firmaHex,   setFirmaHex] = useState('');
   const [nfcSheet,   setNfcSheet] = useState(false);
   const [nfcStatus,  setNfcStatus]= useState('waiting');
-  const [nfcMsg,     setNfcMsg]   = useState(null);
-  const [savedSello, setSavedSello] = useState(null);
+  const [nfcMsg,     setNfcMsg]   = useState('');
+  const [pinModal,   setPinModal] = useState(false);
 
   const { writeTag } = useNfcWriter();
 
-  React.useEffect(() => {
-    if (!permission?.granted) requestPermission();
-  }, []);
+  React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
   const handleScan = ({ data }) => {
     if (scanned) return;
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const result = parseTrama(data);
-    if (!result) { setScanned(false); return; }
+    if (!result) { setScanned(false); showToast('Código no reconocido', 'error'); return; }
     setParsed(result);
     setStep(STEP_SIGN);
   };
 
   const handleSign = async () => {
+    const ok = await hasWallet();
+    if (!ok) { setSignError('No tienes wallet. Créala desde Wallet.'); return; }
+    const hasPin = await hasPinSetup();
+    if (!hasPin) { setSignError('Configura tu PIN primero en Wallet.'); return; }
+    // Abrir modal de PIN
+    setPinModal(true);
+  };
+
+  const handlePinSuccess = async (pin) => {
+    setPinModal(false);
     setSigning(true);
-    setSignError(null);
+    setSignError('');
     try {
-      const ok = await hasWallet();
-      if (!ok) throw new Error('No tienes wallet. Créala desde Wallet.');
-      const firma = await signPayload(parsed.raw);
+      const firma = await signPayload(parsed.raw, pin);
       setFirmaHex(firma);
       setStep(STEP_NFC);
     } catch (e) {
@@ -100,21 +89,19 @@ const NuevoSelloScreen = ({ navigation }) => {
   const handleWriteNfc = async () => {
     setNfcSheet(true);
     setNfcStatus('waiting');
-    setNfcMsg(null);
+    setNfcMsg('');
     const result = await writeTag(firmaHex);
-
     if (result.success) {
       setNfcStatus('success');
       setNfcMsg('Documento sellado correctamente');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const id = insertSello({
+      insertSello({
         trama_hash: hashTrama(parsed.raw),
         trama: parsed.raw, doc_id: parsed.docId, firmante_id: parsed.id,
         tipo_doc: parsed.tipo === '1' ? 'DNI' : 'RUC', num_id: parsed.numero,
         fecha_venc: parsed.fecha, texto_libre: parsed.textoLibre,
         firma_hex: firmaHex, nfc_uid: result.uid,
       });
-      setSavedSello(id);
     } else {
       setNfcStatus('error');
       setNfcMsg(result.error || 'Error al escribir el tag');
@@ -126,153 +113,140 @@ const NuevoSelloScreen = ({ navigation }) => {
     if (nfcStatus === 'success') setStep(STEP_DONE);
   };
 
-  const handleVerSellos = () => {
-    // Navegar al tab de Sellos y refrescar
-    navigation.getParent()?.navigate('SellarTab', { screen: 'Sellos' });
-  };
+  const handleVerSellos = () => navigation.getParent()?.navigate('SellarTab', { screen: 'Sellos' });
 
   const handleNuevoSello = () => {
-    // Reset completo para otro sello
-    setStep(STEP_SCAN);
-    setScanned(false);
-    setParsed(null);
-    setFirmaHex(null);
-    setSignError(null);
-    setNfcStatus('waiting');
-    setNfcMsg(null);
-    setSavedSello(null);
+    setStep(STEP_SCAN); setScanned(false); setParsed(null);
+    setFirmaHex(''); setSignError(''); setNfcStatus('waiting'); setNfcMsg('');
   };
 
-  const FRAME = isTablet ? 320 : 240;
-  const CW    = isTablet ? 32  : 24;
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={[styles.backText, { fontSize: fs(FontSize.md) }]}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontSize: fs(FontSize.lg) }]}>Nuevo sello</Text>
-        <View style={{ width: 70 }} />
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      <StepBar step={step} />
+      <ScreenHeader title="Nuevo sello" onBack={() => navigation.goBack()} theme={theme} />
+      <StepBar steps={STEPS} currentStep={step} theme={theme} />
 
+      {/* ESCANEAR */}
       {step === STEP_SCAN && (
-        <View style={{ flex: 1 }}>
-          {permission?.granted ? (
-            <QRScanner onScanned={handleScan} />
-          ) : (
-            <View style={styles.centered}>
-              <Text style={[styles.permText, { fontSize: RFontSize.md }]}>Se requiere acceso a la cámara</Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-                <Text style={[styles.primaryBtnText, { fontSize: RFontSize.md }]}>Conceder permiso</Text>
+        permission?.granted
+          ? <QRScanner onScanned={handleScan} cornerColor={theme.accent} />
+          : <View style={styles.centered}>
+              <Text style={[styles.permTxt, { color: theme.textSecondary, fontSize: RFontSize.md }]}>
+                Se requiere acceso a la cámara
+              </Text>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={requestPermission}>
+                <Text style={[styles.btnTxt, { fontSize: RFontSize.md }]}>Conceder permiso</Text>
               </TouchableOpacity>
             </View>
-          )}
-        </View>
       )}
 
+      {/* FIRMAR */}
       {step === STEP_SIGN && parsed && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Datos del documento</Text>
-            <DataRow label="Tipo"        value={parsed.tipo === '1' ? 'DNI' : 'RUC'} />
-            <DataRow label="Número"      value={parsed.numero} />
-            <DataRow label="Vencimiento" value={parsed.fecha} />
-            <DataRow label="ID firmante" value={parsed.id} />
-            <DataRow label="Doc ID"      value={parsed.docId} />
-            {parsed.textoLibre ? <DataRow label="Texto libre" value={parsed.textoLibre} /> : null}
+        <ScrollView contentContainerStyle={[styles.content, { gap: rs(Spacing.md) }]}>
+          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>DOCUMENTO</Text>
+            <DataRow label="Tipo"        value={parsed.tipo === '1' ? 'DNI' : 'RUC'} theme={theme} />
+            <DataRow label="Número"      value={parsed.numero} theme={theme} />
+            <DataRow label="Vencimiento" value={parsed.fecha}  theme={theme} />
+            <DataRow label="ID firmante" value={parsed.id}     theme={theme} />
+            <DataRow label="Doc ID"      value={parsed.docId}  theme={theme} />
+            {parsed.textoLibre ? <DataRow label="Texto libre" value={parsed.textoLibre} theme={theme} /> : null}
           </View>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Trama</Text>
-            <Text style={styles.tramaText}>{parsed.raw}</Text>
+          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>TRAMA</Text>
+            <Text style={[styles.tramaText, { color: theme.accent, fontSize: RFontSize.xs }]}>{parsed.raw}</Text>
           </View>
-          {signError && <View style={styles.errorBox}><Text style={[styles.errorText, { fontSize: fs(FontSize.sm) }]}>{signError}</Text></View>}
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleSign} disabled={signing}>
-            {signing ? <ActivityIndicator color={Colors.bg} /> : <Text style={[styles.primaryBtnText, { fontSize: fs(FontSize.lg) }]}>Firmar con mi wallet</Text>}
+          {signError ? <Text style={[styles.errTxt, { color: theme.error, fontSize: RFontSize.sm }]}>{signError}</Text> : null}
+          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSign} disabled={signing}>
+            {signing ? <ActivityIndicator color="#fff" /> : (
+              <View style={styles.btnRow}>
+                <Icon name="lock" size={RFontSize.lg} color="#fff" />
+                <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Firmar con mi wallet</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </ScrollView>
       )}
 
+      {/* NFC */}
       {step === STEP_NFC && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Firma generada</Text>
-            <Text style={styles.firmaText} numberOfLines={4}>{firmaHex}</Text>
+        <ScrollView contentContainerStyle={[styles.content, { gap: rs(Spacing.md) }]}>
+          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>FIRMA GENERADA</Text>
+            <Text style={[styles.firmaText, { color: theme.textSecondary, fontSize: rs(9) }]} numberOfLines={4}>{firmaHex}</Text>
           </View>
-          <View style={[styles.card, { alignItems: 'center', gap: Spacing.sm }]}>
-            <Text style={{ fontSize: fs(FontSize.xl), fontWeight: FontWeight.bold, color: Colors.textPrimary }}>Listo para sellar</Text>
-            <Text style={{ fontSize: fs(FontSize.sm), color: Colors.textSecondary, textAlign: 'center' }}>Toca el botón y acerca el tag NFC</Text>
+          <View style={[styles.nfcCard, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Icon name="nfc" size={rs(44)} color={theme.accent} />
+            <Text style={[styles.nfcTitle, { color: theme.textPrimary, fontSize: RFontSize.xl }]}>Listo para sellar</Text>
+            <Text style={[styles.nfcSub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
+              Toca el botón y acerca el tag NFC al teléfono
+            </Text>
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleWriteNfc}>
-            <Text style={[styles.primaryBtnText, { fontSize: fs(FontSize.lg) }]}>Escribir en tag NFC</Text>
+          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleWriteNfc}>
+            <View style={styles.btnRow}>
+              <Icon name="nfc" size={RFontSize.lg} color="#fff" />
+              <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Escribir en tag NFC</Text>
+            </View>
           </TouchableOpacity>
         </ScrollView>
       )}
 
+      {/* LISTO */}
       {step === STEP_DONE && (
         <View style={styles.doneContainer}>
-          <View style={styles.doneCircle}>
-            <Text style={[styles.doneIcon, { fontSize: fs(48) }]}>✓</Text>
+          <View style={[styles.doneCircle, { backgroundColor: theme.successGlow, borderColor: theme.success }]}>
+            <View style={[styles.checkMark, { borderColor: theme.success }]} />
           </View>
-          <Text style={[styles.doneTitle, { fontSize: fs(FontSize.xxl) }]}>¡Documento sellado!</Text>
-          <Text style={[styles.doneSub, { fontSize: fs(FontSize.md) }]}>La firma fue escrita en el tag NFC correctamente.</Text>
+          <Text style={[styles.doneTitle, { color: theme.success, fontSize: RFontSize.xxl }]}>
+            ¡Documento sellado!
+          </Text>
+          <Text style={[styles.doneSub, { color: theme.textSecondary, fontSize: RFontSize.md }]}>
+            La firma fue escrita en el tag NFC.
+          </Text>
           <View style={styles.doneBtns}>
-            <TouchableOpacity style={[styles.primaryBtn, { flex: 1 }]} onPress={handleVerSellos}>
-              <Text style={[styles.primaryBtnText, { fontSize: fs(FontSize.md) }]}>Ver sellos</Text>
+            <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: theme.accent }]} onPress={handleVerSellos}>
+              <Text style={[styles.btnTxt, { fontSize: RFontSize.md }]}>Ver sellos</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={handleNuevoSello}>
-              <Text style={[styles.secondaryBtnText, { fontSize: fs(FontSize.md) }]}>Nuevo sello</Text>
+            <TouchableOpacity style={[styles.btnOutline, { flex: 1, borderColor: theme.accent }]} onPress={handleNuevoSello}>
+              <Text style={[styles.btnOutlineTxt, { color: theme.accent, fontSize: RFontSize.md }]}>Nuevo sello</Text>
             </TouchableOpacity>
           </View>
         </View>
       )}
 
+      <PinConfirmModal visible={pinModal} onSuccess={handlePinSuccess} onCancel={() => setPinModal(false)} theme={theme} />
       <NfcSheet visible={nfcSheet} mode="write" status={nfcStatus} message={nfcMsg} onCancel={handleSheetClose} />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.bg },
-  header:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1, borderBottomColor: Colors.bgBorder },
-  backBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm, width: 70 },
-  backText:{ color: Colors.textSecondary, fontWeight: FontWeight.medium },
-  headerTitle: { flex: 1, textAlign: 'center', fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md },
-  stepBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.bgBorder },
-  stepItem:{ alignItems: 'center', gap: 4 },
-  stepDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.bgSurface, borderWidth: 1.5, borderColor: Colors.bgBorder, alignItems: 'center', justifyContent: 'center' },
-  stepDotActive:  { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  stepDotTxt:     { fontSize: 10, color: Colors.textMuted, fontWeight: FontWeight.bold },
-  stepDotTxtOn:   { color: Colors.bg },
-  stepLbl:        { fontSize: 9, color: Colors.textMuted, letterSpacing: 0.3 },
-  stepLblOn:      { color: Colors.accent },
-  stepLine:       { flex: 1, height: 1.5, backgroundColor: Colors.bgBorder, marginBottom: 14 },
-  stepLineOn:     { backgroundColor: Colors.accent },
-  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
-  card:    { backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.bgBorder, gap: Spacing.xs },
-  cardTitle:{ fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
-  dataRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  dataLabel:{ fontSize: FontSize.sm, color: Colors.textSecondary },
-  dataValue:{ fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: FontWeight.medium, maxWidth: '55%', textAlign: 'right' },
-  tramaText:{ fontSize: FontSize.xs, color: Colors.accent, fontFamily: 'monospace', lineHeight: 18 },
-  firmaText:{ fontSize: 9, color: Colors.textSecondary, fontFamily: 'monospace', lineHeight: 16 },
-  errorBox: { backgroundColor: Colors.errorGlow, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.errorDim },
-  errorText:{ color: Colors.error },
-  permText: { color: Colors.textSecondary, textAlign: 'center' },
-  primaryBtn: { backgroundColor: Colors.accent, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', shadowColor: Colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
-  primaryBtnText: { fontWeight: FontWeight.bold, color: Colors.bg },
-  secondaryBtn: { backgroundColor: 'transparent', borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.accent },
-  secondaryBtnText: { fontWeight: FontWeight.bold, color: Colors.accent },
-  doneContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.lg },
-  doneCircle:    { width: 100, height: 100, borderRadius: 50, backgroundColor: Colors.successGlow, borderWidth: 2, borderColor: Colors.success, alignItems: 'center', justifyContent: 'center' },
-  doneIcon:      { color: Colors.success, fontWeight: FontWeight.black },
-  doneTitle:     { fontWeight: FontWeight.black, color: Colors.success },
-  doneSub:       { color: Colors.textSecondary, textAlign: 'center' },
-  doneBtns:      { flexDirection: 'row', gap: Spacing.md, width: '100%' },
+  centered:    { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rs(Spacing.md), padding: rs(Spacing.xl) },
+  content:     { padding: rs(Spacing.md), paddingBottom: rs(Spacing.xxl) },
+  card:        { borderRadius: Radius.lg, padding: rs(Spacing.md), borderWidth: 1, gap: rs(6) },
+  cardTitle:   { fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase', marginBottom: rs(4) },
+  dataRow:     { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: rs(3) },
+  dataLabel:   {},
+  dataValue:   { fontWeight: FontWeight.medium, maxWidth: '55%', textAlign: 'right' },
+  tramaText:   { fontFamily: 'monospace', lineHeight: rs(18) },
+  firmaText:   { fontFamily: 'monospace', lineHeight: rs(16) },
+  errTxt:      { textAlign: 'center', fontWeight: FontWeight.medium },
+  permTxt:     { textAlign: 'center' },
+  nfcCard:     { borderRadius: Radius.lg, padding: rs(Spacing.xl), borderWidth: 1, alignItems: 'center', gap: rs(Spacing.sm) },
+  nfcTitle:    { fontWeight: FontWeight.bold },
+  nfcSub:      { textAlign: 'center' },
+  btn:         { borderRadius: Radius.md, paddingVertical: rs(Spacing.md), alignItems: 'center', justifyContent: 'center' },
+  btnRow:      { flexDirection: 'row', alignItems: 'center', gap: rs(Spacing.sm) },
+  btnTxt:      { color: '#fff', fontWeight: FontWeight.bold },
+  btnOutline:  { borderRadius: Radius.md, paddingVertical: rs(Spacing.md), alignItems: 'center', borderWidth: 1.5 },
+  btnOutlineTxt:{ fontWeight: FontWeight.bold },
+  doneContainer:{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: rs(Spacing.xl), gap: rs(Spacing.lg) },
+  doneCircle:  { width: rs(100), height: rs(100), borderRadius: rs(50), borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  checkMark:   { width: rs(32), height: rs(18), borderLeftWidth: 3, borderBottomWidth: 3, transform: [{ rotate: '-45deg' }], marginTop: rs(6) },
+  doneTitle:   { fontWeight: FontWeight.black },
+  doneSub:     { textAlign: 'center' },
+  doneBtns:    { flexDirection: 'row', gap: rs(Spacing.md), width: '100%' },
 });
 
 export default NuevoSelloScreen;

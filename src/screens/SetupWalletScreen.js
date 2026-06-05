@@ -1,8 +1,3 @@
-/**
- * screens/SetupWalletScreen.js
- * Aparece la primera vez si no hay wallet.
- * Genera keypair ECDSA y registra en el backend.
- */
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -10,117 +5,97 @@ import {
   KeyboardAvoidingView, Platform, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
-import { generateWallet, registerWalletOnServer } from '../services/walletService';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { RFontSize, rs } from '../utils/responsive';
+import { generateWallet } from '../services/walletService';
 
 const { width } = Dimensions.get('window');
-const isTablet  = width >= 768;
+const PANEL_W   = Math.min(width - rs(Spacing.xl) * 2, 460);
 
 const SetupWalletScreen = ({ navigation }) => {
-  const [label,    setLabel]    = useState('');
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState(null);
-  const [step,     setStep]     = useState('form'); // form | creating | done
+  const { theme, isDark } = useTheme();
+  const [label,   setLabel]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
 
-  const handleCreate = async () => {
-    if (!label.trim()) { setError('Ingresa tu nombre para identificarte en la lista blanca.'); return; }
-    setLoading(true);
-    setError(null);
-    setStep('creating');
-
+  const handleContinue = async () => {
+    if (!label.trim()) { setError('Ingresa tu nombre para identificarte.'); return; }
+    setLoading(true); setError('');
     try {
-      const wallet = await generateWallet();
-      try {
-        await registerWalletOnServer(label.trim());
-      } catch (regErr) {
-        // Si falla el registro remoto no bloqueamos — igual puede funcionar offline
-        console.warn('[SetupWallet] registro remoto falló:', regErr.message);
-      }
-      setStep('done');
+      await generateWallet();
+      // Ir a setup de PIN pasando el label
+      navigation.replace('SetupPin', { label: label.trim() });
     } catch (e) {
       setError(e.message);
-      setStep('form');
-    } finally {
       setLoading(false);
     }
   };
 
-  const handleContinue = () => navigation.replace('Main');
-
-  const cardW = isTablet ? Math.min(480, width * 0.6) : '100%';
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
-        style={styles.kav}
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: rs(Spacing.xl) }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.card, { width: cardW }]}>
+        <View style={[styles.card, {
+          width: PANEL_W,
+          backgroundColor: theme.bgCard,
+          borderColor: theme.bgBorder,
+        }]}>
 
-          {/* Ícono */}
-          <View style={styles.iconBox}>
-            <View style={styles.ring3} />
-            <View style={styles.ring2} />
-            <View style={styles.ring1} />
-            <View style={styles.dot} />
+          {/* Icono */}
+          <View style={[styles.iconRings, { borderColor: theme.bgBorder2 }]}>
+            <View style={[styles.iconRing2, { borderColor: theme.accentGlow.replace('0.15','0.4') }]} />
+            <View style={[styles.iconDot,  { backgroundColor: theme.accent }]} />
           </View>
 
-          {step === 'form' && (
-            <>
-              <Text style={styles.title}>Bienvenido</Text>
-              <Text style={styles.sub}>
-                Para usar la app necesitas una wallet ECDSA.{'\n'}
-                Tu clave privada se guarda solo en este dispositivo.
-              </Text>
+          <Text style={[styles.title, { color: theme.textPrimary, fontSize: RFontSize.xxl }]}>
+            Bienvenido
+          </Text>
+          <Text style={[styles.sub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
+            Vamos a crear tu wallet ECDSA.{'\n'}
+            Tu clave privada solo vive en este dispositivo.
+          </Text>
 
-              <Text style={styles.inputLabel}>Tu nombre (para la lista blanca)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Juan Pérez"
-                placeholderTextColor={Colors.textMuted}
-                value={label}
-                onChangeText={setLabel}
-                autoCapitalize="words"
-                returnKeyType="done"
-                onSubmitEditing={handleCreate}
-              />
+          <View style={{ width: '100%', gap: rs(Spacing.xs) }}>
+            <Text style={[styles.inputLabel, { color: theme.textMuted, fontSize: RFontSize.xs }]}>
+              TU NOMBRE
+            </Text>
+            <TextInput
+              style={[styles.input, {
+                backgroundColor: theme.bg,
+                borderColor: theme.bgBorder2,
+                color: theme.textPrimary,
+                fontSize: RFontSize.md,
+              }]}
+              placeholder="Ej: Juan Pérez"
+              placeholderTextColor={theme.textMuted}
+              value={label}
+              onChangeText={setLabel}
+              autoCapitalize="words"
+              returnKeyType="done"
+              onSubmitEditing={handleContinue}
+            />
+          </View>
 
-              {error && <Text style={styles.errorText}>{error}</Text>}
+          {error ? (
+            <Text style={[styles.errTxt, { color: theme.error, fontSize: RFontSize.sm }]}>
+              {error}
+            </Text>
+          ) : null}
 
-              <TouchableOpacity
-                style={[styles.btn, (!label.trim() || loading) && styles.btnDisabled]}
-                onPress={handleCreate}
-                disabled={!label.trim() || loading}
-              >
-                {loading
-                  ? <ActivityIndicator color={Colors.bg} />
-                  : <Text style={styles.btnText}>Crear mi wallet</Text>
-                }
-              </TouchableOpacity>
-            </>
-          )}
-
-          {step === 'creating' && (
-            <View style={styles.centered}>
-              <ActivityIndicator color={Colors.accent} size="large" />
-              <Text style={styles.sub}>Generando tu keypair ECDSA…</Text>
-            </View>
-          )}
-
-          {step === 'done' && (
-            <>
-              <Text style={[styles.title, { color: Colors.success }]}>Wallet creada</Text>
-              <Text style={styles.sub}>
-                Tu identidad criptográfica está lista.{'\n'}
-                Ya puedes sellar y validar documentos.
-              </Text>
-              <TouchableOpacity style={[styles.btn, { backgroundColor: Colors.success }]} onPress={handleContinue}>
-                <Text style={styles.btnText}>Empezar →</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
+          <TouchableOpacity
+            style={[styles.btn, { backgroundColor: label.trim() ? theme.accent : theme.bgBorder2 }]}
+            onPress={handleContinue}
+            disabled={loading || !label.trim()}
+          >
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={[styles.btnTxt, { fontSize: RFontSize.md }]}>Continuar →</Text>
+            }
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -128,26 +103,17 @@ const SetupWalletScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.bg },
-  kav:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-  card:    { backgroundColor: Colors.bgSurface, borderRadius: Radius.xl, padding: isTablet ? Spacing.xxl : Spacing.xl, borderWidth: 1, borderColor: Colors.bgBorder, alignItems: 'center', gap: Spacing.md },
-  centered:{ alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.lg },
-
-  // NFC icon
-  iconBox: { width: 80, height: 80, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.sm },
-  ring3:   { position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 1, borderColor: Colors.accent, opacity: 0.2 },
-  ring2:   { position: 'absolute', width: 56, height: 56, borderRadius: 28, borderWidth: 1.5, borderColor: Colors.accent, opacity: 0.4 },
-  ring1:   { position: 'absolute', width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: Colors.accent, opacity: 0.7 },
-  dot:     { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.accent },
-
-  title:      { fontSize: isTablet ? FontSize.xxl : FontSize.xl, fontWeight: FontWeight.black, color: Colors.textPrimary, textAlign: 'center' },
-  sub:        { fontSize: isTablet ? FontSize.md : FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  inputLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: FontWeight.bold, letterSpacing: 0.5, alignSelf: 'flex-start' },
-  input:      { width: '100%', backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.bgBorder, borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, fontSize: isTablet ? FontSize.lg : FontSize.md, color: Colors.textPrimary },
-  errorText:  { fontSize: FontSize.sm, color: Colors.error, textAlign: 'center' },
-  btn:        { width: '100%', backgroundColor: Colors.accent, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', shadowColor: Colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10, elevation: 6 },
-  btnDisabled:{ opacity: 0.45 },
-  btnText:    { fontSize: isTablet ? FontSize.lg : FontSize.md, fontWeight: FontWeight.bold, color: Colors.bg },
+  card:       { borderRadius: Radius.xl, padding: rs(Spacing.xl), borderWidth: 1, alignItems: 'center', gap: rs(Spacing.lg) },
+  iconRings:  { width: rs(80), height: rs(80), borderRadius: rs(40), borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  iconRing2:  { position: 'absolute', width: rs(56), height: rs(56), borderRadius: rs(28), borderWidth: 1.5 },
+  iconDot:    { width: rs(18), height: rs(18), borderRadius: rs(9) },
+  title:      { fontWeight: FontWeight.black },
+  sub:        { textAlign: 'center', lineHeight: rs(22) },
+  inputLabel: { fontWeight: FontWeight.bold, letterSpacing: 1 },
+  input:      { width: '100%', borderWidth: 1.5, borderRadius: Radius.md, paddingHorizontal: rs(Spacing.md), paddingVertical: rs(Spacing.sm + 2) },
+  errTxt:     { textAlign: 'center' },
+  btn:        { width: '100%', borderRadius: Radius.md, paddingVertical: rs(Spacing.md), alignItems: 'center' },
+  btnTxt:     { color: '#fff', fontWeight: FontWeight.bold },
 });
 
 export default SetupWalletScreen;

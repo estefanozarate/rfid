@@ -4,12 +4,14 @@ import { NavigationContainer }        from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator }   from '@react-navigation/bottom-tabs';
 
-import { useTheme } from '../context/ThemeContext';
-import { Spacing, Radius, FontSize, FontWeight } from '../theme';
+import { useTheme }   from '../context/ThemeContext';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { RFontSize, rs } from '../utils/responsive';
 import Icon from '../components/Icon';
 
 import WelcomeScreen         from '../screens/WelcomeScreen';
 import SetupWalletScreen     from '../screens/SetupWalletScreen';
+import SetupPinScreen        from '../screens/SetupPinScreen';
 import InicioScreen          from '../screens/InicioScreen';
 import SellosScreen          from '../screens/SellosScreen';
 import NuevoSelloScreen      from '../screens/NuevoSelloScreen';
@@ -22,20 +24,15 @@ const Tab   = createBottomTabNavigator();
 
 const { width } = Dimensions.get('window');
 const isTablet  = width >= 768;
-const ICON_SZ   = isTablet ? 24 : 22;
-const TAB_H     = isTablet ? 72 : 60;
+const TAB_H     = isTablet ? 72 : 62;
 
-// ── Tab icon — ancho fijo para no cortarse ────────────────
+// ── Tab icon ──────────────────────────────────────────────
 const TabIcon = ({ iconName, label, focused, theme }) => {
   const color = focused ? theme.accent : theme.textMuted;
   return (
-    <View style={[tabSt.wrap, { width: width / 4 - 4 }]}>
-      <Icon name={iconName} size={ICON_SZ} color={color} />
-      <Text
-        style={[tabSt.label, { color, fontSize: isTablet ? 11 : 10 }]}
-        numberOfLines={1}
-        ellipsizeMode="clip"
-      >
+    <View style={[tabSt.wrap, { width: width / 4 - rs(4) }]}>
+      <Icon name={iconName} size={RFontSize.xl} color={color} />
+      <Text style={[tabSt.label, { color, fontSize: RFontSize.xs }]} numberOfLines={1} ellipsizeMode="clip">
         {label}
       </Text>
       {focused && <View style={[tabSt.dot, { backgroundColor: theme.accent }]} />}
@@ -44,39 +41,48 @@ const TabIcon = ({ iconName, label, focused, theme }) => {
 };
 
 const tabSt = StyleSheet.create({
-  wrap:  { alignItems: 'center', justifyContent: 'center', paddingTop: 4, gap: 2 },
-  label: { fontWeight: FontWeight.medium, letterSpacing: 0.2 },
-  dot:   { width: 4, height: 4, borderRadius: 2, marginTop: 1 },
+  wrap:  { alignItems: 'center', justifyContent: 'center', paddingTop: rs(4), gap: rs(2) },
+  label: { fontWeight: FontWeight.medium },
+  dot:   { width: rs(4), height: rs(4), borderRadius: rs(2), marginTop: rs(1) },
 });
 
-// ── Stacks ────────────────────────────────────────────────
 const makeStackOpts = (theme) => ({
   headerShown:  false,
   animation:    'slide_from_right',
   contentStyle: { backgroundColor: theme.bg },
 });
 
-const InicioStack  = () => { const { theme } = useTheme(); return (
-  <Stack.Navigator screenOptions={makeStackOpts(theme)}>
-    <Stack.Screen name="Inicio"          component={InicioScreen} />
-    <Stack.Screen name="NuevoSello"      component={NuevoSelloScreen} />
-    <Stack.Screen name="NuevaValidacion" component={NuevaValidacionScreen} />
-  </Stack.Navigator>
-)};
+// ── Stacks ────────────────────────────────────────────────
+const InicioStack = () => {
+  const { theme } = useTheme();
+  return (
+    <Stack.Navigator screenOptions={makeStackOpts(theme)}>
+      <Stack.Screen name="Inicio"          component={InicioScreen} />
+      <Stack.Screen name="NuevoSello"      component={NuevoSelloScreen} />
+      <Stack.Screen name="NuevaValidacion" component={NuevaValidacionScreen} />
+    </Stack.Navigator>
+  );
+};
 
-const SellarStack  = () => { const { theme } = useTheme(); return (
-  <Stack.Navigator screenOptions={makeStackOpts(theme)}>
-    <Stack.Screen name="Sellos"     component={SellosScreen} />
-    <Stack.Screen name="NuevoSello" component={NuevoSelloScreen} />
-  </Stack.Navigator>
-)};
+const SellarStack = () => {
+  const { theme } = useTheme();
+  return (
+    <Stack.Navigator screenOptions={makeStackOpts(theme)}>
+      <Stack.Screen name="Sellos"     component={SellosScreen} />
+      <Stack.Screen name="NuevoSello" component={NuevoSelloScreen} />
+    </Stack.Navigator>
+  );
+};
 
-const ValidarStack = () => { const { theme } = useTheme(); return (
-  <Stack.Navigator screenOptions={makeStackOpts(theme)}>
-    <Stack.Screen name="Validaciones"    component={ValidacionesScreen} />
-    <Stack.Screen name="NuevaValidacion" component={NuevaValidacionScreen} />
-  </Stack.Navigator>
-)};
+const ValidarStack = () => {
+  const { theme } = useTheme();
+  return (
+    <Stack.Navigator screenOptions={makeStackOpts(theme)}>
+      <Stack.Screen name="Validaciones"    component={ValidacionesScreen} />
+      <Stack.Screen name="NuevaValidacion" component={NuevaValidacionScreen} />
+    </Stack.Navigator>
+  );
+};
 
 // ── Bottom Tabs ───────────────────────────────────────────
 const MainTabs = () => {
@@ -96,18 +102,26 @@ const MainTabs = () => {
         },
       }}
     >
-      {[
-        { name: 'InicioTab',  comp: InicioStack,  icon: 'home',   label: 'Inicio'  },
-        { name: 'SellarTab',  comp: SellarStack,  icon: 'seal',   label: 'Sellos'  },
-        { name: 'ValidarTab', comp: ValidarStack, icon: 'shield', label: 'Validar' },
-        { name: 'WalletTab',  comp: WalletScreen, icon: 'wallet', label: 'Wallet'  },
-      ].map(({ name, comp, icon, label }) => (
-        <Tab.Screen key={name} name={name} component={comp}
-          options={{ tabBarIcon: ({ focused }) =>
-            <TabIcon iconName={icon} label={label} focused={focused} theme={theme} />
-          }}
-        />
-      ))}
+      <Tab.Screen name="InicioTab"
+        component={InicioStack}
+        options={{ tabBarIcon: ({ focused }) =>
+          <TabIcon iconName="home" label="Inicio" focused={focused} theme={theme} /> }}
+      />
+      <Tab.Screen name="SellarTab"
+        component={SellarStack}
+        options={{ tabBarIcon: ({ focused }) =>
+          <TabIcon iconName="seal" label="Sellos" focused={focused} theme={theme} /> }}
+      />
+      <Tab.Screen name="ValidarTab"
+        component={ValidarStack}
+        options={{ tabBarIcon: ({ focused }) =>
+          <TabIcon iconName="shield" label="Validados" focused={focused} theme={theme} /> }}
+      />
+      <Tab.Screen name="WalletTab"
+        component={WalletScreen}
+        options={{ tabBarIcon: ({ focused }) =>
+          <TabIcon iconName="wallet" label="Wallet" focused={focused} theme={theme} /> }}
+      />
     </Tab.Navigator>
   );
 };
@@ -120,6 +134,7 @@ const AppNavigator = () => {
       <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
         <Stack.Screen name="Welcome"     component={WelcomeScreen} />
         <Stack.Screen name="SetupWallet" component={SetupWalletScreen} options={{ animation: 'fade' }} />
+        <Stack.Screen name="SetupPin"    component={SetupPinScreen}    options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Main"        component={MainTabs}          options={{ animation: 'fade' }} />
       </Stack.Navigator>
     </NavigationContainer>

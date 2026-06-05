@@ -1,60 +1,60 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, Dimensions,
+  SafeAreaView, ScrollView,
 } from 'react-native';
-import { useCameraPermissions } from 'expo-camera';
-import QRScanner from '../components/QRScanner';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
-import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
+import { RFontSize, rs } from '../utils/responsive';
+import ScreenHeader, { StepBar } from '../components/ScreenHeader';
+import QRScanner from '../components/QRScanner';
+import NfcSheet from '../components/NfcSheet';
+import Icon from '../components/Icon';
 import { parseTrama } from '../utils/tramaParser';
+import { hashTrama } from '../utils/hash';
 import { verifySignature } from '../services/walletService';
 import { useNfcNdefReader } from '../hooks/useNfcNdefReader';
-import NfcSheet from '../components/NfcSheet';
 import { insertValidacion } from '../db/validacionesRepository';
-import { hashTrama } from '../utils/hash';
 import { getWhitelist } from '../db/whitelistRepository';
 
-const { width } = Dimensions.get('window');
-const isTablet  = width >= 768;
-const fs        = (n) => isTablet ? n * 1.25 : n;
+const useCameraPermissions = require('expo-camera').useCameraPermissions;
 
-const STEP_SCAN   = 'scan';
-const STEP_NFC    = 'nfc';
-const STEP_RESULT = 'result';
+const STEPS      = ['Escanear', 'Leer NFC', 'Resultado'];
+const STEP_SCAN  = 'Escanear';
+const STEP_NFC   = 'Leer NFC';
+const STEP_RESULT= 'Resultado';
 
-const DataRow = ({ label, value, accent }) => (
+const DataRow = ({ label, value, accent, theme }) => (
   <View style={styles.dataRow}>
-    <Text style={styles.dataLabel}>{label}</Text>
-    <Text style={[styles.dataValue, accent && { color: Colors.accent }]} numberOfLines={1}>{String(value || '—')}</Text>
+    <Text style={[styles.dataLabel, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>{label}</Text>
+    <Text style={[styles.dataValue, { color: accent ? theme.accent : theme.textPrimary, fontSize: RFontSize.sm }]} numberOfLines={1}>
+      {String(value || '—')}
+    </Text>
   </View>
 );
 
-const NuevaValidacionScreen = ({ navigation }) => {
+const NuevaValidacionScreen = ({ navigation, route }) => {
+  const { theme, isDark } = useTheme();
+  const { showToast }     = useToast();
   const [permission, requestPermission] = useCameraPermissions();
   const [step,      setStep]      = useState(STEP_SCAN);
   const [scanned,   setScanned]   = useState(false);
   const [parsed,    setParsed]    = useState(null);
   const [nfcSheet,  setNfcSheet]  = useState(false);
   const [nfcStatus, setNfcStatus] = useState('waiting');
-  const [nfcMsg,    setNfcMsg]    = useState(null);
+  const [nfcMsg,    setNfcMsg]    = useState('');
   const [resultado, setResultado] = useState(null);
 
   const { readTag } = useNfcNdefReader();
 
-  React.useEffect(() => {
-    if (!permission?.granted) requestPermission();
-  }, []);
+  React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
-  // Reset completo para nueva validación
   const handleReset = () => {
-    setStep(STEP_SCAN);
-    setScanned(false);
-    setParsed(null);
-    setNfcStatus('waiting');
-    setNfcMsg(null);
-    setResultado(null);
+    setStep(STEP_SCAN); setScanned(false); setParsed(null);
+    setNfcStatus('waiting'); setNfcMsg(''); setResultado(null);
   };
 
   const handleScan = ({ data }) => {
@@ -62,7 +62,7 @@ const NuevaValidacionScreen = ({ navigation }) => {
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const result = parseTrama(data);
-    if (!result) { setScanned(false); return; }
+    if (!result) { setScanned(false); showToast('Código no reconocido', 'error'); return; }
     setParsed(result);
     setStep(STEP_NFC);
   };
@@ -70,10 +70,9 @@ const NuevaValidacionScreen = ({ navigation }) => {
   const handleReadNfc = async () => {
     setNfcSheet(true);
     setNfcStatus('waiting');
-    setNfcMsg(null);
+    setNfcMsg('');
 
     const result = await readTag();
-
     if (!result.success) {
       setNfcStatus('error');
       setNfcMsg(result.error || 'No se pudo leer el tag');
@@ -87,9 +86,7 @@ const NuevaValidacionScreen = ({ navigation }) => {
 
     for (const w of whitelist) {
       if (verifySignature(parsed.raw, firmaHex, w.address)) {
-        verified = true;
-        signer   = w;
-        break;
+        verified = true; signer = w; break;
       }
     }
 
@@ -100,7 +97,7 @@ const NuevaValidacionScreen = ({ navigation }) => {
       firmaHex,
       nfcUid:   result.uid,
       detalle:  verified
-        ? `Firmado por: ${signer.label} (${signer.address.slice(0,10)}...)`
+        ? `Firmado por: ${signer.label}`
         : 'La firma no corresponde a ningún address autorizado',
     };
 
@@ -113,19 +110,13 @@ const NuevaValidacionScreen = ({ navigation }) => {
       : Haptics.NotificationFeedbackType.Error);
 
     insertValidacion({
-      trama_hash:    hashTrama(parsed.raw),
-      trama:         parsed.raw,
-      doc_id:        parsed.docId,
-      firmante_id:   parsed.id,
-      tipo_doc:      parsed.tipo === '1' ? 'DNI' : 'RUC',
-      num_id:        parsed.numero,
-      fecha_venc:    parsed.fecha,
-      texto_libre:   parsed.textoLibre,
-      firma_hex:     firmaHex,
-      address_found: res.address || '',
-      resultado:     verified ? 'valido' : 'invalido',
-      detalle:       res.detalle,
-      nfc_uid:       result.uid,
+      trama_hash: hashTrama(parsed.raw),
+      trama: parsed.raw, doc_id: parsed.docId, firmante_id: parsed.id,
+      tipo_doc: parsed.tipo === '1' ? 'DNI' : 'RUC', num_id: parsed.numero,
+      fecha_venc: parsed.fecha, texto_libre: parsed.textoLibre,
+      firma_hex: firmaHex, address_found: res.address || '',
+      resultado: verified ? 'valido' : 'invalido',
+      detalle: res.detalle, nfc_uid: result.uid,
     });
   };
 
@@ -134,93 +125,91 @@ const NuevaValidacionScreen = ({ navigation }) => {
     if (resultado) setStep(STEP_RESULT);
   };
 
-  const handleVerValidaciones = () => {
+  const handleVerValidaciones = () =>
     navigation.getParent()?.navigate('ValidarTab', { screen: 'Validaciones' });
-  };
-
-  const FRAME = isTablet ? 320 : 240;
-  const CW    = isTablet ? 32  : 24;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={[styles.backText, { fontSize: fs(FontSize.md) }]}>← Volver</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { fontSize: fs(FontSize.lg) }]}>Nueva validación</Text>
-        <View style={{ width: 70 }} />
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-            {step === STEP_SCAN && (
-        <View style={{ flex: 1 }}>
-          {permission?.granted ? (
-            <QRScanner
-              onScanned={handleScan}
-              cornerColor={theme.success}
-              hint="Apunta al QR o código de barras"
-            />
-          ) : (
-            <View style={styles.centered}>
-              <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-                <Text style={styles.primaryBtnText}>Conceder permiso de cámara</Text>
+      <ScreenHeader title="Nueva validación" onBack={() => navigation.goBack()} theme={theme} />
+      <StepBar steps={STEPS} currentStep={step} theme={theme} />
+
+      {/* ESCANEAR */}
+      {step === STEP_SCAN && (
+        permission?.granted
+          ? <QRScanner onScanned={handleScan} cornerColor={theme.success} />
+          : <View style={styles.centered}>
+              <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={requestPermission}>
+                <Text style={[styles.btnTxt, { fontSize: RFontSize.md }]}>Conceder permiso de cámara</Text>
               </TouchableOpacity>
             </View>
-          )}
-        </View>
-      )}
-        </View>
       )}
 
+      {/* LEER NFC */}
       {step === STEP_NFC && parsed && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Documento escaneado</Text>
-            <DataRow label="Doc ID"      value={parsed.docId} accent />
-            <DataRow label="Tipo"        value={parsed.tipo === '1' ? 'DNI' : 'RUC'} />
-            <DataRow label="Número"      value={parsed.numero} />
-            <DataRow label="Vencimiento" value={parsed.fecha} />
-            <DataRow label="ID firmante" value={parsed.id} />
+        <ScrollView contentContainerStyle={[styles.content, { gap: rs(Spacing.md) }]}>
+          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>DOCUMENTO ESCANEADO</Text>
+            <DataRow label="Doc ID"      value={parsed.docId}  accent theme={theme} />
+            <DataRow label="Tipo"        value={parsed.tipo === '1' ? 'DNI' : 'RUC'} theme={theme} />
+            <DataRow label="Número"      value={parsed.numero} theme={theme} />
+            <DataRow label="Vencimiento" value={parsed.fecha}  theme={theme} />
+            <DataRow label="ID firmante" value={parsed.id}     theme={theme} />
           </View>
-          <View style={[styles.card, { alignItems: 'center', gap: Spacing.sm }]}>
-            <Text style={{ fontSize: fs(FontSize.xl), fontWeight: FontWeight.bold, color: Colors.textPrimary }}>Verificar sello NFC</Text>
-            <Text style={{ fontSize: fs(FontSize.sm), color: Colors.textSecondary, textAlign: 'center' }}>Acerca el tag para leer la firma</Text>
+          <View style={[styles.nfcCard, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Icon name="nfc" size={rs(44)} color={theme.success} />
+            <Text style={[styles.nfcTitle, { color: theme.textPrimary, fontSize: RFontSize.xl }]}>
+              Verificar sello NFC
+            </Text>
+            <Text style={[styles.nfcSub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
+              Acerca el tag para leer la firma
+            </Text>
           </View>
-          <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: Colors.success }]} onPress={handleReadNfc}>
-            <Text style={[styles.primaryBtnText, { fontSize: fs(FontSize.lg) }]}>Leer tag NFC</Text>
+          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.success }]} onPress={handleReadNfc}>
+            <View style={styles.btnRow}>
+              <Icon name="nfc" size={RFontSize.lg} color="#fff" />
+              <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Leer tag NFC</Text>
+            </View>
           </TouchableOpacity>
         </ScrollView>
       )}
 
+      {/* RESULTADO */}
       {step === STEP_RESULT && resultado && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={[styles.content, { gap: rs(Spacing.md) }]}>
           <View style={[styles.resultBadge, {
-            backgroundColor: resultado.valido ? Colors.successGlow : Colors.errorGlow,
-            borderColor:     resultado.valido ? Colors.success     : Colors.error,
+            backgroundColor: resultado.valido ? theme.successGlow : theme.errorGlow,
+            borderColor:     resultado.valido ? theme.success     : theme.error,
           }]}>
-            <Text style={[styles.resultIcon, { fontSize: fs(52), color: resultado.valido ? Colors.success : Colors.error }]}>
-              {resultado.valido ? '✓' : '✕'}
-            </Text>
-            <Text style={[styles.resultText, { fontSize: fs(FontSize.xxl), color: resultado.valido ? Colors.success : Colors.error }]}>
+            <Icon
+              name={resultado.valido ? 'checkCircle' : 'xCircle'}
+              size={rs(52)}
+              color={resultado.valido ? theme.success : theme.error}
+            />
+            <Text style={[styles.resultTitle, {
+              color: resultado.valido ? theme.success : theme.error,
+              fontSize: RFontSize.xxl,
+            }]}>
               {resultado.valido ? 'Firma válida' : 'Firma inválida'}
             </Text>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Resultado</Text>
-            <DataRow label="Doc ID"    value={parsed.docId} accent />
-            <DataRow label="Estado"    value={resultado.valido ? '✓ VÁLIDO' : '✕ INVÁLIDO'} />
-            {resultado.firmante && <DataRow label="Firmado por" value={resultado.firmante.label} />}
-            {resultado.address  && <DataRow label="Address"    value={resultado.address.slice(0,18) + '...'} />}
-            <DataRow label="Detalle"   value={resultado.detalle} />
+          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>RESULTADO</Text>
+            <DataRow label="Doc ID"     value={parsed.docId} accent theme={theme} />
+            <DataRow label="Estado"     value={resultado.valido ? '✓ VÁLIDO' : '✕ INVÁLIDO'} theme={theme} />
+            {resultado.firmante && <DataRow label="Firmado por" value={resultado.firmante.label} theme={theme} />}
+            {resultado.address  && <DataRow label="Address"    value={resultado.address.slice(0,18)+'...'} theme={theme} />}
+            <DataRow label="Detalle"   value={resultado.detalle} theme={theme} />
           </View>
 
           <View style={styles.doneBtns}>
-            <TouchableOpacity style={[styles.primaryBtn, { flex: 1 }]} onPress={handleVerValidaciones}>
-              <Text style={[styles.primaryBtnText, { fontSize: fs(FontSize.md) }]}>Ver validaciones</Text>
+            <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: theme.accent }]} onPress={handleVerValidaciones}>
+              <Text style={[styles.btnTxt, { fontSize: RFontSize.md }]}>Ver validaciones</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.secondaryBtn, { flex: 1 }]} onPress={handleReset}>
-              <Text style={[styles.secondaryBtnText, { fontSize: fs(FontSize.md) }]}>Nueva validación</Text>
+            <TouchableOpacity style={[styles.btnOutline, { flex: 1, borderColor: theme.success }]} onPress={handleReset}>
+              <Text style={[styles.btnOutlineTxt, { color: theme.success, fontSize: RFontSize.md }]}>Nueva validación</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -232,26 +221,24 @@ const NuevaValidacionScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.bg },
-  header:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1, borderBottomColor: Colors.bgBorder },
-  backBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.sm, width: 70 },
-  backText:{ color: Colors.textSecondary, fontWeight: FontWeight.medium },
-  headerTitle: { flex: 1, textAlign: 'center', fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  centered:{ flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
-  card:    { backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.bgBorder, gap: Spacing.xs },
-  cardTitle:{ fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
-  dataRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  dataLabel:{ fontSize: FontSize.sm, color: Colors.textSecondary },
-  dataValue:{ fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: FontWeight.medium, maxWidth: '55%', textAlign: 'right' },
-  primaryBtn: { backgroundColor: Colors.accent, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', shadowColor: Colors.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
-  primaryBtnText: { fontWeight: FontWeight.bold, color: Colors.bg },
-  secondaryBtn: { backgroundColor: 'transparent', borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.success },
-  secondaryBtnText: { fontWeight: FontWeight.bold, color: Colors.success },
-  resultBadge: { borderRadius: Radius.lg, padding: Spacing.xl, borderWidth: 1.5, alignItems: 'center', gap: Spacing.sm },
-  resultIcon:  { fontWeight: FontWeight.black },
-  resultText:  { fontWeight: FontWeight.black },
-  doneBtns:    { flexDirection: 'row', gap: Spacing.md },
+  centered:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rs(Spacing.md) },
+  content:      { padding: rs(Spacing.md), paddingBottom: rs(Spacing.xxl) },
+  card:         { borderRadius: Radius.lg, padding: rs(Spacing.md), borderWidth: 1, gap: rs(6) },
+  cardTitle:    { fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase', marginBottom: rs(4) },
+  dataRow:      { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: rs(3) },
+  dataLabel:    {},
+  dataValue:    { fontWeight: FontWeight.medium, maxWidth: '55%', textAlign: 'right' },
+  nfcCard:      { borderRadius: Radius.lg, padding: rs(Spacing.xl), borderWidth: 1, alignItems: 'center', gap: rs(Spacing.sm) },
+  nfcTitle:     { fontWeight: FontWeight.bold },
+  nfcSub:       { textAlign: 'center' },
+  btn:          { borderRadius: Radius.md, paddingVertical: rs(Spacing.md), alignItems: 'center', justifyContent: 'center' },
+  btnRow:       { flexDirection: 'row', alignItems: 'center', gap: rs(Spacing.sm) },
+  btnTxt:       { color: '#fff', fontWeight: FontWeight.bold },
+  btnOutline:   { borderRadius: Radius.md, paddingVertical: rs(Spacing.md), alignItems: 'center', borderWidth: 1.5 },
+  btnOutlineTxt:{ fontWeight: FontWeight.bold },
+  resultBadge:  { borderRadius: Radius.lg, padding: rs(Spacing.xl), borderWidth: 1.5, alignItems: 'center', gap: rs(Spacing.sm) },
+  resultTitle:  { fontWeight: FontWeight.black },
+  doneBtns:     { flexDirection: 'row', gap: rs(Spacing.md) },
 });
 
 export default NuevaValidacionScreen;

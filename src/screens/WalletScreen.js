@@ -11,7 +11,7 @@ import { Spacing, Radius, FontSize, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/Toast';
 import Icon from '../components/Icon';
-import { loadWallet, generateWallet, registerWalletOnServer, fetchWhitelist } from '../services/walletService';
+import { loadWallet, generateWallet, registerWalletOnServer, fetchWhitelist, hasPinSetup } from '../services/walletService';
 import { syncWhitelist, getWhitelist } from '../db/whitelistRepository';
 
 const { width } = Dimensions.get('window');
@@ -94,15 +94,22 @@ const WalletScreen = () => {
   };
 
   const handleSync = async () => {
+    if (syncing) return;
     setSyncing(true);
     try {
       const wallets = await fetchWhitelist();
-      syncWhitelist(wallets);
-      setWhitelist(getWhitelist());
-      showToast(`${wallets.length} firmantes sincronizados`, 'success');
+      if (wallets && wallets.length >= 0) {
+        syncWhitelist(wallets);
+        const updated = getWhitelist();
+        setWhitelist(updated);
+        showToast(wallets.length + ' firmantes sincronizados', 'success');
+      }
     } catch (e) {
-      showToast(e.message, 'error');
-    } finally { setSyncing(false); }
+      console.warn('[Wallet] sync error:', e.message);
+      showToast('Error de sincronización: ' + e.message, 'error');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
