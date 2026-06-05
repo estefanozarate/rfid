@@ -11,12 +11,17 @@
     "prebuild:ios": "expo prebuild --platform ios --clean"
   },
   "dependencies": {
+    "@noble/hashes": "1.4.0",
+    "@noble/secp256k1": "2.1.0",
+    "@react-navigation/bottom-tabs": "^6.5.20",
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/native-stack": "^6.9.26",
     "expo": "~51.0.0",
     "expo-camera": "~15.0.16",
+    "expo-crypto": "~13.0.2",
     "expo-haptics": "~13.0.1",
     "expo-linear-gradient": "~13.0.2",
+    "expo-secure-store": "~13.0.2",
     "expo-sqlite": "~14.0.6",
     "expo-status-bar": "~1.12.1",
     "react": "18.2.0",
