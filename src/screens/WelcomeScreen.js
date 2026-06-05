@@ -92,7 +92,7 @@ const WelcomeScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.btn}
             activeOpacity={1}
-            onPress={() => async () => { const { hasWallet } = require('../services/walletService'); const ok = await hasWallet(); navigation.navigate(ok ? 'Main' : 'SetupWallet'); })(}
+            onPress={async () => { const { hasWallet } = require('../services/walletService'); const ok = await hasWallet(); navigation.navigate(ok ? 'Main' : 'SetupWallet'); }}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             accessibilityLabel="Empezar"
