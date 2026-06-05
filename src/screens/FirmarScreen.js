@@ -39,7 +39,7 @@ const SectionHeader = ({ title }) => (
 const FirmarScreen = ({ navigation, route }) => {
   // Datos pasados desde QRScannerScreen
   const { qrData, persona } = route.params;
-  const { tipo, numero, fecha, id } = qrData;
+  const { tipo, numero, fecha, id, docId, textoLibre } = qrData;
 
   // Formatear fecha de YYYY/MM/DD a DD/MM/YYYY
   const fechaFormateada = (() => {
@@ -105,7 +105,9 @@ const FirmarScreen = ({ navigation, route }) => {
             mono
           />
           <DataRow label="Fecha" value={fechaFormateada} />
-          <DataRow label="ID"    value={id} />
+          <DataRow label="ID firmante" value={id} />
+          <DataRow label="Doc ID"     value={docId} mono />
+          {textoLibre ? <DataRow label="Texto libre" value={textoLibre} /> : null}
         </View>
 
         {/* Card: Datos de la DB */}
