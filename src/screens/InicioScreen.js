@@ -53,14 +53,7 @@ const InicioScreen = ({ navigation }) => {
           style={styles.logoImg}
           resizeMode="contain"
         />
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.appName, { color: t.textPrimary, fontSize: RFontSize.md }]}>
-            NFC Sign
-          </Text>
-          <Text style={[styles.appSub, { color: t.textSecondary, fontSize: RFontSize.xs }]}>
-            stamping.io · demo
-          </Text>
-        </View>
+        <View style={{ flex: 1 }} />
         <TouchableOpacity onPress={toggleTheme} style={styles.themeBtn}>
           <Icon name={isDark ? 'sun' : 'moon'} size={RFontSize.xl} color={t.textSecondary} />
         </TouchableOpacity>
@@ -161,9 +154,9 @@ const InicioScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: rs(Spacing.md), paddingVertical: rs(Spacing.sm), borderBottomWidth: 1, gap: rs(Spacing.sm) },
+  header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: rs(Spacing.md), paddingTop: rs(Spacing.md), paddingBottom: rs(Spacing.sm), borderBottomWidth: 1, gap: rs(Spacing.sm) },
   logoBg:      {},
-  logoImg:     { height: rs(36), width: rs(120) },
+  logoImg:     { height: rs(42), width: rs(140) },
   appName:     { fontWeight: FontWeight.bold },
   appSub:      { letterSpacing: 0.3, marginTop: 1 },
   themeBtn:    { padding: rs(Spacing.sm) },

@@ -3,7 +3,7 @@
  * Modal de confirmación de PIN antes de firmar.
  * Sale desde abajo, misma estética que el teclado numérico de SetupPin.
  */
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Modal, Animated, Dimensions,
@@ -93,12 +93,20 @@ const PinConfirmModal = ({ visible, onSuccess, onCancel, theme }) => {
     }
   };
 
-  const KEYS = [
-    ['1','','2','ABC','3','DEF'],
-    ['4','GHI','5','JKL','6','MNO'],
-    ['7','PQRS','8','TUV','9','WXYZ'],
-    [null,null,'0','','delete',null],
-  ];
+  const KEYS = useMemo(() => {
+    const digits = ['1','2','3','4','5','6','7','8','9','0'];
+    for (let i = digits.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [digits[i], digits[j]] = [digits[j], digits[i]];
+    }
+    const d = digits.slice(0, 9);
+    return [
+      [d[0],'',d[1],'',d[2],''],
+      [d[3],'',d[4],'',d[5],''],
+      [d[6],'',d[7],'',d[8],''],
+      [null,null,digits[9],'','delete',null],
+    ];
+  }, [visible]); // regenerar cada vez que se abre el modal
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>

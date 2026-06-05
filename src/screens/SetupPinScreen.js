@@ -3,7 +3,7 @@
  * Configuración de PIN de 6 dígitos al primer ingreso.
  * Diseño estilo wallet (Yape/Plin) — panel numérico, responsive, max-width en tablet.
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, Animated, Dimensions, ActivityIndicator,
@@ -195,12 +195,24 @@ const SetupPinScreen = ({ navigation, route }) => {
 
   const current = titles[stage] || titles.create;
 
-  const KEYS = [
-    ['1','','2','ABC','3','DEF'],
-    ['4','GHI','5','JKL','6','MNO'],
-    ['7','PQRS','8','TUV','9','WXYZ'],
-    [null,null,'0','','delete',null],
-  ];
+  // Generar layout aleatorio cada vez que se muestra el teclado
+  const KEYS = useMemo(() => {
+    const digits = ['1','2','3','4','5','6','7','8','9','0'];
+    // Fisher-Yates shuffle
+    for (let i = digits.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [digits[i], digits[j]] = [digits[j], digits[i]];
+    }
+    // Organizar en filas de 3, el ultimo row tiene hueco-0-delete
+    const d = digits.slice(0, 9); // primeros 9 en grilla 3x3
+    const last = digits[9];       // el 0 va abajo al centro
+    return [
+      [d[0],'',d[1],'',d[2],''],
+      [d[3],'',d[4],'',d[5],''],
+      [d[6],'',d[7],'',d[8],''],
+      [null,null,last,'','delete',null],
+    ];
+  }, [stage]); // regenerar al cambiar de etapa
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>

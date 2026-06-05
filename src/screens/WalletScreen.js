@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
-import QRCode from 'react-native-qrcode-svg';
+import QRDisplay from '../components/QRDisplay';
 import { Spacing, Radius, FontSize, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/Toast';
@@ -133,12 +133,7 @@ const WalletScreen = () => {
             {/* QR centrado */}
             <View style={s.qrContainer}>
               <View style={s.qrBox}>
-                <QRCode
-                  value={wallet.address}
-                  size={QR_SIZE}
-                  color="#000000"
-                  backgroundColor="#FFFFFF"
-                />
+                <QRDisplay value={wallet.address} size={QR_SIZE} theme={theme} />
               </View>
             </View>
 
