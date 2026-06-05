@@ -45,7 +45,7 @@ const deriveKey = (pin, salt) => {
   const pinBytes  = new TextEncoder().encode(pin);
   const saltBytes = fromHex(salt);
   // PBKDF2 con SHA256, 100k iteraciones, 32 bytes
-  return pbkdf2(sha256, pinBytes, saltBytes, { c: 100000, dkLen: 32 });
+  return pbkdf2(sha256, pinBytes, saltBytes, { c: 10000, dkLen: 32 });
 };
 
 // XOR-based encryption (compatible con RN sin WebCrypto)

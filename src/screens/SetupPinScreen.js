@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, Animated, Dimensions,
+  SafeAreaView, Animated, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Spacing, Radius, FontWeight } from '../theme';
@@ -106,7 +106,8 @@ const PinBtn = ({ label, sub, onPress, theme, isDelete, isAction }) => {
 // ── Pantalla ──────────────────────────────────────────────
 const SetupPinScreen = ({ navigation, route }) => {
   const { theme, isDark } = useTheme();
-  const [stage,   setStage]   = useState('create');  // create | confirm | syncing | done | error
+  const [stage,   setStage]   = useState('create');
+  const [progress, setProgress] = useState('');  // create | confirm | syncing | done | error
   const [pin,     setPin]     = useState('');
   const [firstPin, setFirstPin] = useState('');
   const [errMsg,  setErrMsg]  = useState('');
@@ -155,15 +156,18 @@ const SetupPinScreen = ({ navigation, route }) => {
 
       // PIN correcto — cifrar wallet y sincronizar
       setStage('syncing');
+      setProgress('Cifrando wallet...');
       try {
         await setupPin(completed);
 
-        // Registrar en backend y descargar lista blanca
+        setProgress('Registrando en servidor...');
         try {
           await registerWalletOnServer(label);
         } catch (e) {
           console.warn('[SetupPin] registro falló:', e.message);
         }
+
+        setProgress('Descargando lista blanca...');
         try {
           const wallets = await fetchWhitelist();
           syncWhitelist(wallets);
@@ -171,6 +175,7 @@ const SetupPinScreen = ({ navigation, route }) => {
           console.warn('[SetupPin] sync falló:', e.message);
         }
 
+        setProgress('');
         setStage('done');
         setTimeout(() => navigation.replace('Main'), 1200);
       } catch (e) {
@@ -183,7 +188,7 @@ const SetupPinScreen = ({ navigation, route }) => {
   const titles = {
     create:  { title: 'Crea tu PIN',       sub: `Elige ${PIN_LEN} dígitos para proteger tu wallet` },
     confirm: { title: 'Confirma tu PIN',   sub: 'Ingresa el mismo PIN para verificar' },
-    syncing: { title: 'Configurando...',   sub: 'Cifrando wallet y sincronizando...' },
+    syncing: { title: 'Configurando...',   sub: progress || 'Preparando tu wallet...' },
     done:    { title: '¡Listo!',           sub: 'Tu wallet está protegida' },
     error:   { title: 'Error',             sub: errMsg },
   };
@@ -278,7 +283,7 @@ const SetupPinScreen = ({ navigation, route }) => {
         {/* Syncing */}
         {stage === 'syncing' && (
           <View style={styles.syncingRow}>
-            <View style={[styles.syncSpinner, { borderColor: theme.accent, borderTopColor: 'transparent' }]} />
+            <ActivityIndicator size={"large"} color={theme.accent} />
           </View>
         )}
 
