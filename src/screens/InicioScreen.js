@@ -48,13 +48,11 @@ const InicioScreen = ({ navigation }) => {
 
       {/* Header con logo */}
       <View style={[styles.header, { backgroundColor: t.bgSurface, borderBottomColor: t.bgBorder }]}>
-        <View style={[styles.logoBg, { backgroundColor: t.brand }]}>
-          <Image
-            source={require('../../assets/logot_crop.png')}
-            style={styles.logoImg}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={require('../../assets/logot_crop.png')}
+          style={styles.logoImg}
+          resizeMode="contain"
+        />
         <View style={{ flex: 1 }}>
           <Text style={[styles.appName, { color: t.textPrimary, fontSize: RFontSize.md }]}>
             NFC Sign
@@ -164,8 +162,8 @@ const InicioScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   header:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: rs(Spacing.md), paddingVertical: rs(Spacing.sm), borderBottomWidth: 1, gap: rs(Spacing.sm) },
-  logoBg:      { borderRadius: Radius.md, padding: rs(6), height: rs(44), justifyContent: 'center' },
-  logoImg:     { height: rs(28), width: rs(90) },
+  logoBg:      {},
+  logoImg:     { height: rs(36), width: rs(120) },
   appName:     { fontWeight: FontWeight.bold },
   appSub:      { letterSpacing: 0.3, marginTop: 1 },
   themeBtn:    { padding: rs(Spacing.sm) },

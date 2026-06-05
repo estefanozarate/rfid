@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, ScrollView, Dimensions,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
+import QRScanner from '../components/QRScanner';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
 import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
@@ -151,41 +152,14 @@ const NuevaValidacionScreen = ({ navigation }) => {
         <View style={{ width: 70 }} />
       </View>
 
-      {step === STEP_SCAN && (
+            {step === STEP_SCAN && (
         <View style={{ flex: 1 }}>
           {permission?.granted ? (
-            <>
-              <CameraView
-                style={StyleSheet.absoluteFill}
-                facing="back"
-                barcodeScannerSettings={{ barcodeTypes: ['qr','code128','code39','ean13'] }}
-                onBarcodeScanned={handleScan}
-              />
-              <View style={StyleSheet.absoluteFill}>
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-                <View style={{ flexDirection: 'row', height: FRAME }}>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-                  <View style={{ width: FRAME, height: FRAME, position: 'relative' }}>
-                    {[{t:0,l:0,bt:'t',bl:'l'},{t:0,r:0,bt:'t',bl:'r'},{b:0,l:0,bt:'b',bl:'l'},{b:0,r:0,bt:'b',bl:'r'}].map((pos, i) => (
-                      <View key={i} style={[{
-                        position:'absolute', width:CW, height:CW,
-                        borderColor:Colors.success, borderWidth:0,
-                        top:pos.t, left:pos.l, right:pos.r, bottom:pos.b,
-                      },{
-                        borderTopWidth:    pos.bt==='t'?3:0,
-                        borderBottomWidth: pos.bt==='b'?3:0,
-                        borderLeftWidth:   pos.bl==='l'?3:0,
-                        borderRightWidth:  pos.bl==='r'?3:0,
-                      }]} />
-                    ))}
-                  </View>
-                  <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' }} />
-                </View>
-                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', paddingTop: Spacing.xl }}>
-                  <Text style={{ fontSize: fs(FontSize.md), color: 'white', textAlign: 'center' }}>Apunta al QR o código de barras</Text>
-                </View>
-              </View>
-            </>
+            <QRScanner
+              onScanned={handleScan}
+              cornerColor={theme.success}
+              hint="Apunta al QR o código de barras"
+            />
           ) : (
             <View style={styles.centered}>
               <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
@@ -193,6 +167,8 @@ const NuevaValidacionScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           )}
+        </View>
+      )}
         </View>
       )}
 
