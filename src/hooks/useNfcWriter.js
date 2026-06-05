@@ -1,7 +1,7 @@
 /**
  * hooks/useNfcWriter.js
  * Escribe texto NDEF en un tag NFC.
- * Maneja start(), soporte y errores explícitamente.
+ * Si el tag no está formateado (NDEF) lo formatea automáticamente.
  */
 import { useState, useCallback } from 'react';
 import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
@@ -24,63 +24,86 @@ export const useNfcWriter = () => {
     setSuccess(false);
 
     try {
-      // 1. Verificar soporte
+      // 1. Verificar soporte y estado
       const supported = await NfcManager.isSupported();
-      if (!supported) {
-        throw new Error('Este dispositivo no tiene hardware NFC.');
-      }
+      if (!supported) throw new Error('Este dispositivo no tiene hardware NFC.');
 
-      // 2. Verificar que NFC esté habilitado en ajustes del sistema
       const enabled = await NfcManager.isEnabled();
-      if (!enabled) {
-        throw new Error('El NFC está desactivado. Actívalo en Ajustes → Conexiones → NFC.');
-      }
+      if (!enabled) throw new Error('El NFC está desactivado. Actívalo en Ajustes → Conexiones → NFC.');
 
-      // 3. Inicializar (seguro llamar múltiples veces)
       await NfcManager.start();
 
-      // 4. Solicitar tecnología NDEF
-      await NfcManager.requestTechnology(NfcTech.Ndef);
-
-      // 5. Leer tag para obtener UID
-      const tag = await NfcManager.getTag();
-      console.log('[NFC] Tag detectado:', JSON.stringify(tag));
-
-      const uid = tag?.id
-        ? Array.from(tag.id).map(b => b.toString(16).padStart(2, '0')).join(':').toUpperCase()
-        : 'unknown';
-      setNfcUid(uid);
-
-      // 6. Verificar que el tag soporte escritura
-      const ndefStatus = await NfcManager.ndefHandler.getNdefStatus();
-      console.log('[NFC] NDEF status:', JSON.stringify(ndefStatus));
-
-      if (ndefStatus.status === 3) { // ReadOnly
-        throw new Error('Este tag NFC es de solo lectura y no se puede escribir.');
-      }
-
-      // 7. Codificar y escribir
       const bytes = Ndef.encodeMessage([Ndef.textRecord(text)]);
-      console.log('[NFC] Escribiendo', bytes.length, 'bytes...');
 
-      await NfcManager.ndefHandler.writeNdefMessage(bytes);
-      console.log('[NFC] Escritura exitosa');
+      // 2. Intentar escribir como NDEF primero
+      try {
+        await NfcManager.requestTechnology(NfcTech.Ndef);
 
-      setSuccess(true);
-      return { success: true, uid };
+        const tag = await NfcManager.getTag();
+        const uid = getUid(tag);
+        setNfcUid(uid);
+
+        // Verificar si es read-only
+        const status = await NfcManager.ndefHandler.getNdefStatus();
+        if (status.status === 3) throw new Error('Este tag NFC es de solo lectura.');
+
+        await NfcManager.ndefHandler.writeNdefMessage(bytes);
+        console.log('[NFC] Escritura NDEF exitosa, uid:', uid);
+        setSuccess(true);
+        return { success: true, uid };
+
+      } catch (ndefErr) {
+        console.warn('[NFC] NDEF falló:', ndefErr?.message);
+        await cancelSafe();
+
+        // 3. Si el tag no es NDEF, intentar formatearlo con NdefFormatable
+        const isNotNdef = ndefErr?.message?.includes('not a NDEF') ||
+                          ndefErr?.message?.includes('NDEF') ||
+                          ndefErr?.message?.includes('TagLost') ||
+                          ndefErr?.message?.includes('IOException');
+
+        if (!isNotNdef) throw ndefErr; // error diferente, relanzar
+
+        console.log('[NFC] Tag no NDEF — intentando formatear...');
+
+        await NfcManager.requestTechnology(NfcTech.NdefFormatable);
+
+        const tag = await NfcManager.getTag();
+        const uid = getUid(tag);
+        setNfcUid(uid);
+
+        // formatAndWriteNdefMessage formatea el tag y escribe en un solo paso
+        await NfcManager.ndefFormatableHandlerAndroid.formatAndWriteNdefMessage(bytes);
+        console.log('[NFC] Tag formateado y escrito, uid:', uid);
+
+        setSuccess(true);
+        return { success: true, uid, formatted: true };
+      }
 
     } catch (err) {
       const msg = err?.message || String(err) || 'Error desconocido al escribir el tag';
-      console.warn('[NFC] writeTag error:', msg);
+      console.warn('[NFC] writeTag error final:', msg);
       setError(msg);
       return { success: false, error: msg };
     } finally {
-      try { await NfcManager.cancelTechnologyRequest(); } catch (e) {
-        console.warn('[NFC] cancelTechnologyRequest:', e?.message);
-      }
+      await cancelSafe();
       setIsWriting(false);
     }
   }, []);
 
   return { isWriting, error, success, nfcUid, writeTag, reset };
+};
+
+// ── Helpers ───────────────────────────────────────────────
+
+const getUid = (tag) => {
+  if (!tag?.id) return 'unknown';
+  return Array.from(tag.id)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join(':')
+    .toUpperCase();
+};
+
+const cancelSafe = async () => {
+  try { await NfcManager.cancelTechnologyRequest(); } catch {}
 };
