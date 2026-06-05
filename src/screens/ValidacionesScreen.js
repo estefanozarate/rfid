@@ -53,7 +53,9 @@ const ValidacionesScreen = ({ navigation }) => {
   const [validaciones, setValidaciones] = useState([]);
 
   useFocusEffect(useCallback(() => {
-    setValidaciones(getAllValidaciones());
+    const data = getAllValidaciones();
+    console.log("[Validaciones] cargadas:", data.length);
+    setValidaciones(data);
   }, []));
 
   const handleNew = () => navigation.navigate('NuevaValidacion');

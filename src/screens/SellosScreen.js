@@ -50,7 +50,9 @@ const SellosScreen = ({ navigation }) => {
   const [sellos, setSellos] = useState([]);
 
   useFocusEffect(useCallback(() => {
-    setSellos(getAllSellos());
+    const data = getAllSellos();
+    console.log("[Sellos] cargados:", data.length);
+    setSellos(data);
   }, []));
 
   const handleDelete = (id) => {

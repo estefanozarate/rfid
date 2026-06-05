@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { NavigationContainer }        from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator }   from '@react-navigation/bottom-tabs';
 
 import WelcomeScreen         from '../screens/WelcomeScreen';
+import SetupWalletScreen     from '../screens/SetupWalletScreen';
 import InicioScreen          from '../screens/InicioScreen';
 import SellosScreen          from '../screens/SellosScreen';
 import NuevoSelloScreen      from '../screens/NuevoSelloScreen';
@@ -18,82 +19,94 @@ const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
 
 const stackOpts = {
-  headerShown:   false,
-  animation:     'slide_from_right',
-  contentStyle:  { backgroundColor: Colors.bg },
+  headerShown:  false,
+  animation:    'slide_from_right',
+  contentStyle: { backgroundColor: Colors.bg },
 };
 
-// ── Iconos puros con View/Text — sin librerías nativas ────
+// ── Tamaño responsive ─────────────────────────────────────
+const { width } = Dimensions.get('window');
+const isTablet  = width >= 768;
+const TAB_H     = isTablet ? 72 : 62;
+const ICON_SIZE = isTablet ? 28 : 22;
+const LABEL_SZ  = isTablet ? 11 : 9;
+const DOT_SIZE  = isTablet ? 5  : 4;
 
-// Casa: techo triangular + cuerpo + puerta
-const IconHome = ({ color }) => (
-  <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'flex-end' }}>
-    {/* techo */}
-    <View style={{ width: 0, height: 0, borderLeftWidth: 11, borderRightWidth: 11, borderBottomWidth: 9, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color, marginBottom: 0 }} />
-    {/* cuerpo */}
-    <View style={{ width: 16, height: 11, borderWidth: 1.8, borderColor: color, borderTopWidth: 0 }}>
-      {/* puerta */}
-      <View style={{ width: 5, height: 7, borderWidth: 1.5, borderColor: color, position: 'absolute', bottom: 0, alignSelf: 'center' }} />
+// ── Iconos View puro ──────────────────────────────────────
+const IconHome = ({ color, s }) => (
+  <View style={{ width: s, height: s, alignItems: 'center', justifyContent: 'flex-end' }}>
+    <View style={{ width: 0, height: 0,
+      borderLeftWidth: s * 0.5, borderRightWidth: s * 0.5, borderBottomWidth: s * 0.4,
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderBottomColor: color }} />
+    <View style={{ width: s * 0.72, height: s * 0.5, borderWidth: 1.8, borderColor: color, borderTopWidth: 0 }}>
+      <View style={{ width: s * 0.23, height: s * 0.32, borderWidth: 1.5, borderColor: color,
+        position: 'absolute', bottom: 0, alignSelf: 'center' }} />
     </View>
   </View>
 );
 
-// Sello: estrella simplificada con círculo exterior
-const IconSeal = ({ color }) => (
-  <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 1.8, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: color }} />
+const IconSeal = ({ color, s }) => (
+  <View style={{ width: s, height: s, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: s * 0.82, height: s * 0.82, borderRadius: s * 0.41,
+      borderWidth: 1.8, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: s * 0.36, height: s * 0.36, borderRadius: s * 0.18,
+        borderWidth: 1.5, borderColor: color }} />
     </View>
-    {/* tick interno */}
-    <View style={{ position: 'absolute', width: 5, height: 2.5, borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: color, transform: [{ rotate: '-45deg' }], marginTop: 1 }} />
+    <View style={{ position: 'absolute', width: s * 0.23, height: s * 0.12,
+      borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: color,
+      transform: [{ rotate: '-45deg' }] }} />
   </View>
 );
 
-// Shield: rectángulo con punta abajo + tick
-const IconShield = ({ color }) => (
-  <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: 16, height: 13, borderWidth: 1.8, borderColor: color, borderRadius: 3, borderBottomWidth: 0, alignItems: 'center', justifyContent: 'center' }}>
-      {/* tick */}
-      <View style={{ width: 6, height: 3, borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: color, transform: [{ rotate: '-45deg' }], marginTop: 2 }} />
+const IconShield = ({ color, s }) => (
+  <View style={{ width: s, height: s, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: s * 0.73, height: s * 0.59, borderWidth: 1.8, borderColor: color,
+      borderRadius: 3, borderBottomWidth: 0, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: s * 0.27, height: s * 0.14,
+        borderLeftWidth: 1.5, borderBottomWidth: 1.5, borderColor: color,
+        transform: [{ rotate: '-45deg' }], marginTop: s * 0.09 }} />
     </View>
-    {/* punta del escudo */}
-    <View style={{ width: 0, height: 0, borderLeftWidth: 8, borderRightWidth: 8, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: color }} />
+    <View style={{ width: 0, height: 0,
+      borderLeftWidth: s * 0.36, borderRightWidth: s * 0.36, borderTopWidth: s * 0.27,
+      borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: color }} />
   </View>
 );
 
-// Wallet: rectángulo con bolsillo circular
-const IconWallet = ({ color }) => (
-  <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: 20, height: 13, borderWidth: 1.8, borderColor: color, borderRadius: 3, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 3 }}>
-      {/* tapa superior */}
-      <View style={{ position: 'absolute', top: -5, left: 2, width: 10, height: 5, borderTopWidth: 1.8, borderLeftWidth: 1.8, borderRightWidth: 1.8, borderColor: color, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
-      {/* bolsillo */}
-      <View style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: color }} />
+const IconWallet = ({ color, s }) => (
+  <View style={{ width: s, height: s, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: s * 0.91, height: s * 0.59, borderWidth: 1.8, borderColor: color,
+      borderRadius: 3, alignItems: 'flex-end', justifyContent: 'center', paddingRight: s * 0.09 }}>
+      <View style={{ position: 'absolute', top: -s * 0.23, left: s * 0.09,
+        width: s * 0.45, height: s * 0.23,
+        borderTopWidth: 1.8, borderLeftWidth: 1.8, borderRightWidth: 1.8,
+        borderColor: color, borderTopLeftRadius: 2, borderTopRightRadius: 2 }} />
+      <View style={{ width: s * 0.36, height: s * 0.36, borderRadius: s * 0.18,
+        borderWidth: 1.5, borderColor: color, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: s * 0.14, height: s * 0.14, borderRadius: s * 0.07, backgroundColor: color }} />
       </View>
     </View>
   </View>
 );
 
-const ICON_MAP = { home: IconHome, seal: IconSeal, shield: IconShield, wallet: IconWallet };
+const ICONS = { home: IconHome, seal: IconSeal, shield: IconShield, wallet: IconWallet };
 
 const TabIcon = ({ iconKey, label, focused }) => {
-  const Icon = ICON_MAP[iconKey];
+  const Icon  = ICONS[iconKey];
   const color = focused ? Colors.accent : Colors.textMuted;
   return (
-    <View style={tabSt.wrap}>
-      <Icon color={color} />
-      <Text style={[tabSt.label, focused && tabSt.labelOn]}>{label}</Text>
-      {focused && <View style={tabSt.dot} />}
+    <View style={[tabSt.wrap, { paddingTop: isTablet ? 6 : 4 }]}>
+      <Icon color={color} s={ICON_SIZE} />
+      <Text style={[tabSt.label, { fontSize: LABEL_SZ }, focused && tabSt.labelOn]}>{label}</Text>
+      {focused && <View style={[tabSt.dot, { width: DOT_SIZE, height: DOT_SIZE, borderRadius: DOT_SIZE / 2 }]} />}
     </View>
   );
 };
 
 const tabSt = StyleSheet.create({
-  wrap:    { alignItems: 'center', gap: 2, paddingTop: 4 },
-  label:   { fontSize: 9, color: Colors.textMuted, letterSpacing: 0.3 },
+  wrap:    { alignItems: 'center', gap: 2 },
+  label:   { color: Colors.textMuted, letterSpacing: 0.3 },
   labelOn: { color: Colors.accent, fontWeight: FontWeight.bold },
-  dot:     { width: 4, height: 4, borderRadius: 2, backgroundColor: Colors.accent, marginTop: 1 },
+  dot:     { backgroundColor: Colors.accent, marginTop: 1 },
 });
 
 // ── Stacks ────────────────────────────────────────────────
@@ -129,31 +142,20 @@ const MainTabs = () => (
         backgroundColor: Colors.bgSurface,
         borderTopColor:  Colors.bgBorder,
         borderTopWidth:  1,
-        height:          62,
-        paddingBottom:   6,
+        height:          TAB_H,
+        paddingBottom:   isTablet ? 10 : 6,
+        paddingTop:      isTablet ? 6  : 2,
       },
     }}
   >
-    <Tab.Screen name="InicioTab"
-      component={InicioStack}
-      options={{ tabBarIcon: ({ focused }) =>
-        <TabIcon iconKey="home" label="Inicio" focused={focused} /> }}
-    />
-    <Tab.Screen name="SellarTab"
-      component={SellarStack}
-      options={{ tabBarIcon: ({ focused }) =>
-        <TabIcon iconKey="seal" label="Sellos" focused={focused} /> }}
-    />
-    <Tab.Screen name="ValidarTab"
-      component={ValidarStack}
-      options={{ tabBarIcon: ({ focused }) =>
-        <TabIcon iconKey="shield" label="Validar" focused={focused} /> }}
-    />
-    <Tab.Screen name="WalletTab"
-      component={WalletScreen}
-      options={{ tabBarIcon: ({ focused }) =>
-        <TabIcon iconKey="wallet" label="Wallet" focused={focused} /> }}
-    />
+    <Tab.Screen name="InicioTab"  component={InicioStack}
+      options={{ tabBarIcon: ({ focused }) => <TabIcon iconKey="home"   label="Inicio"  focused={focused} /> }} />
+    <Tab.Screen name="SellarTab"  component={SellarStack}
+      options={{ tabBarIcon: ({ focused }) => <TabIcon iconKey="seal"   label="Sellos"  focused={focused} /> }} />
+    <Tab.Screen name="ValidarTab" component={ValidarStack}
+      options={{ tabBarIcon: ({ focused }) => <TabIcon iconKey="shield" label="Validar" focused={focused} /> }} />
+    <Tab.Screen name="WalletTab"  component={WalletScreen}
+      options={{ tabBarIcon: ({ focused }) => <TabIcon iconKey="wallet" label="Wallet"  focused={focused} /> }} />
   </Tab.Navigator>
 );
 
@@ -161,8 +163,9 @@ const MainTabs = () => (
 const AppNavigator = () => (
   <NavigationContainer>
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
-      <Stack.Screen name="Main"    component={MainTabs} options={{ animation: 'fade' }} />
+      <Stack.Screen name="Welcome"     component={WelcomeScreen} />
+      <Stack.Screen name="SetupWallet" component={SetupWalletScreen} options={{ animation: 'fade' }} />
+      <Stack.Screen name="Main"        component={MainTabs}          options={{ animation: 'fade' }} />
     </Stack.Navigator>
   </NavigationContainer>
 );
