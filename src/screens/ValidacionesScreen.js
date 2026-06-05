@@ -10,6 +10,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
+import Icon from '../components/Icon';
 import { getAllValidaciones } from '../db/validacionesRepository';
 
 const ValidacionItem = ({ item }) => {
@@ -20,7 +21,7 @@ const ValidacionItem = ({ item }) => {
   return (
     <View style={[styles.item, { borderLeftColor: isValid ? Colors.success : Colors.error, borderLeftWidth: 3 }]}>
       <View style={[styles.itemIcon, { backgroundColor: isValid ? Colors.successGlow : Colors.errorGlow }]}>
-        <Text style={{ fontSize: 18 }}>{isValid ? '✓' : '✕'}</Text>
+        <Icon name={isValid ? 'checkCircle' : 'xCircle'} size={20} color={isValid ? Colors.success : Colors.error} />
       </View>
       <View style={styles.itemText}>
         <View style={styles.itemRow}>
@@ -40,7 +41,7 @@ const ValidacionItem = ({ item }) => {
 
 const EmptyState = ({ onNew }) => (
   <View style={styles.empty}>
-    <Text style={styles.emptyIcon}>🛡️</Text>
+    <View style={{width:72,height:72,borderRadius:16,backgroundColor:Colors.bgSurface,borderWidth:1,borderColor:Colors.bgBorder,alignItems:'center',justifyContent:'center'}}><Icon name='shield' size={38} color={Colors.textMuted} /></View>
     <Text style={styles.emptyTitle}>Sin validaciones</Text>
     <Text style={styles.emptySub}>Toca el botón + para verificar un documento</Text>
     <TouchableOpacity style={styles.emptyBtn} onPress={onNew}>
@@ -79,7 +80,7 @@ const ValidacionesScreen = ({ navigation }) => {
 
       {validaciones.length > 0 && (
         <TouchableOpacity style={styles.fab} onPress={handleNew}>
-          <Text style={styles.fabText}>+</Text>
+          <Icon name='plus' size={26} color={Colors.bg} />
         </TouchableOpacity>
       )}
     </SafeAreaView>

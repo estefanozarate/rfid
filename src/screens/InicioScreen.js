@@ -10,6 +10,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
+import Icon from '../components/Icon';
 import { hasWallet, loadWallet, generateWallet, registerWalletOnServer } from '../services/walletService';
 import { countWhitelist } from '../db/whitelistRepository';
 import { getAllSellos } from '../db/sellosRepository';
