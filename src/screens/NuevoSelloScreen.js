@@ -236,7 +236,7 @@ const NuevoSelloScreen = ({ navigation }) => {
             </Text>
           </View>
           <TouchableOpacity style={styles.primaryBtn} onPress={handleWriteNfc}>
-            <Text style={styles.primaryBtnText}>📡 Escribir en tag NFC</Text>
+            <Text style={styles.primaryBtnText}>Escribir en tag NFC</Text>
           </TouchableOpacity>
         </ScrollView>
       )}

@@ -193,7 +193,7 @@ const NuevaValidacionScreen = ({ navigation }) => {
             <Text style={styles.nfcCardSub}>Acerca el tag para leer la firma</Text>
           </View>
           <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: Colors.success }]} onPress={handleReadNfc}>
-            <Text style={styles.primaryBtnText}>📡 Leer tag NFC</Text>
+            <Text style={styles.primaryBtnText}>Leer tag NFC</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
