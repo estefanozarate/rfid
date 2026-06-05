@@ -1,23 +1,28 @@
-/**
- * App.js
- * ──────────────────────────────────────────────────────────
- * Punto de entrada. Inicializa la DB SQLite al arrancar.
- */
-
 import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { ToastProvider } from './src/components/Toast';
+import { useTheme } from './src/context/ThemeContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import { initDatabase } from './src/db/database';
 
-export default function App() {
-  useEffect(() => {
-    // Inicializa SQLite y crea tabla personas con seed
-    initDatabase();
-  }, []);
+// Inner necesita acceso al tema para el ToastProvider
+const Inner = () => {
+  const { theme } = useTheme();
+  return (
+    <ToastProvider theme={theme}>
+      <AppNavigator />
+    </ToastProvider>
+  );
+};
 
+export default function App() {
+  useEffect(() => { initDatabase(); }, []);
   return (
     <SafeAreaProvider>
-      <AppNavigator />
+      <ThemeProvider>
+        <Inner />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

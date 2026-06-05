@@ -1,47 +1,135 @@
 /**
  * theme/index.js
- * ──────────────────────────────────────────────────────────
- * Tokens de diseño globales para stamping.io RFID Reader.
- * Paleta oscura industrial con acento en cian eléctrico.
+ * Sistema de colores basado en el logo Fileserver.
+ *
+ * Paleta extraída del logo:
+ *   Azul:  #5090dc (color principal del logo)
+ *   Rosa:  #dc96c8 (acento secundario del logo)
+ *   Fondo: #1e2d2d (teal oscuro del logo)
+ *
+ * Regla 70/20/10:
+ *   70% → fondo/superficie (neutro)
+ *   20% → texto y bordes (secundario)
+ *   10% → acento (azul del logo)
  */
 
-export const Colors = {
-  // Fondos
-  bg:           '#0A0A0F',
-  bgCard:       '#111118',
-  bgSurface:    '#18181F',
-  bgBorder:     '#2A2A38',
+const palette = {
+  // Del logo
+  blue:       '#5090dc',
+  blueDark:   '#3a72c0',
+  blueLight:  '#7ab0e8',
+  blueGlow:   'rgba(80, 144, 220, 0.15)',
 
-  // Acento principal — cian eléctrico
-  accent:       '#00E5FF',
-  accentDim:    '#00B8CC',
-  accentGlow:   'rgba(0, 229, 255, 0.15)',
-  accentGlow2:  'rgba(0, 229, 255, 0.05)',
+  rose:       '#dc96c8',
+  roseGlow:   'rgba(220, 150, 200, 0.15)',
 
-  // Estado de éxito
-  success:      '#00FF87',
-  successDim:   '#00CC6A',
-  successGlow:  'rgba(0, 255, 135, 0.12)',
+  tealDark:   '#1e2d2d',
+  teal:       '#2a3f3f',
 
-  // Estado de error
-  error:        '#FF4757',
-  errorDim:     '#CC3344',
-  errorGlow:    'rgba(255, 71, 87, 0.12)',
+  // Neutros
+  white:      '#FFFFFF',
+  gray50:     '#F7F8FA',
+  gray100:    '#EEF1F5',
+  gray200:    '#DDE3EC',
+  gray300:    '#C4CEDB',
+  gray400:    '#8A9BB0',
+  gray500:    '#5A6A7E',
+  gray600:    '#3A4857',
+  gray700:    '#253040',
+  gray800:    '#192330',
+  gray900:    '#0F161E',
+  black:      '#000000',
 
-  // Estado de advertencia
-  warning:      '#FFB800',
-  warningGlow:  'rgba(255, 184, 0, 0.12)',
-
-  // Texto
-  textPrimary:  '#F0F0FF',
-  textSecondary:'#8888AA',
-  textMuted:    '#44445A',
-  textAccent:   '#00E5FF',
-
-  // Overlay
-  overlay:      'rgba(0, 0, 0, 0.7)',
+  // Estados
+  green:      '#22c55e',
+  greenGlow:  'rgba(34, 197, 94, 0.12)',
+  red:        '#ef4444',
+  redGlow:    'rgba(239, 68, 68, 0.12)',
+  amber:      '#f59e0b',
+  amberGlow:  'rgba(245, 158, 11, 0.12)',
 };
 
+// ── Modo claro ────────────────────────────────────────────
+export const LightTheme = {
+  // 70% — fondos y superficies
+  bg:          palette.gray50,
+  bgCard:      palette.white,
+  bgSurface:   palette.white,
+  bgBorder:    palette.gray200,
+  bgBorder2:   palette.gray300,
+
+  // 20% — texto
+  textPrimary:   palette.gray800,
+  textSecondary: palette.gray500,
+  textMuted:     palette.gray400,
+
+  // 10% — acento (azul del logo)
+  accent:      palette.blue,
+  accentDark:  palette.blueDark,
+  accentLight: palette.blueLight,
+  accentGlow:  palette.blueGlow,
+
+  // Rosa — solo para elementos especiales
+  rose:        palette.rose,
+  roseGlow:    palette.roseGlow,
+
+  // Estados
+  success:     palette.green,
+  successGlow: palette.greenGlow,
+  error:       palette.red,
+  errorDim:    '#fca5a5',
+  errorGlow:   palette.redGlow,
+  warning:     palette.amber,
+  warningGlow: palette.amberGlow,
+
+  // Teal del logo para elementos de marca
+  brand:       palette.tealDark,
+  brandText:   palette.white,
+
+  isDark: false,
+};
+
+// ── Modo oscuro ───────────────────────────────────────────
+export const DarkTheme = {
+  // 70% — fondos y superficies
+  bg:          palette.gray900,
+  bgCard:      palette.gray800,
+  bgSurface:   palette.gray700,
+  bgBorder:    palette.gray600,
+  bgBorder2:   palette.gray500,
+
+  // 20% — texto
+  textPrimary:   '#EEF1F5',
+  textSecondary: palette.gray400,
+  textMuted:     palette.gray600,
+
+  // 10% — acento (azul más brillante en oscuro)
+  accent:      palette.blueLight,
+  accentDark:  palette.blue,
+  accentLight: '#a0c8f0',
+  accentGlow:  'rgba(122, 176, 232, 0.2)',
+
+  // Rosa
+  rose:        '#f0b0d8',
+  roseGlow:    'rgba(240, 176, 216, 0.15)',
+
+  // Estados
+  success:     '#4ade80',
+  successGlow: 'rgba(74, 222, 128, 0.12)',
+  error:       '#f87171',
+  errorDim:    '#7f1d1d',
+  errorGlow:   'rgba(248, 113, 113, 0.12)',
+  warning:     '#fbbf24',
+  warningGlow: 'rgba(251, 191, 36, 0.12)',
+
+  // Teal del logo
+  brand:       palette.teal,
+  brandText:   palette.white,
+
+  isDark: true,
+};
+
+// ── Tokens fijos (no cambian con el tema) ─────────────────
 export const Spacing = {
   xs:  4,
   sm:  8,
@@ -52,10 +140,10 @@ export const Spacing = {
 };
 
 export const Radius = {
-  sm:  8,
-  md:  12,
-  lg:  16,
-  xl:  24,
+  sm:   6,
+  md:   10,
+  lg:   16,
+  xl:   24,
   full: 9999,
 };
 
@@ -70,9 +158,12 @@ export const FontSize = {
 };
 
 export const FontWeight = {
-  regular: '400',
-  medium:  '500',
-  semibold:'600',
-  bold:    '700',
-  black:   '900',
+  regular:  '400',
+  medium:   '500',
+  semibold: '600',
+  bold:     '700',
+  black:    '900',
 };
+
+// Default export — se sobreescribe por ThemeContext
+export const Colors = LightTheme;

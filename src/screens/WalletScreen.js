@@ -1,40 +1,58 @@
-/**
- * screens/WalletScreen.js
- * Mi address + lista blanca + sincronizar del backend.
- */
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   SafeAreaView, ScrollView, ActivityIndicator,
-  Alert, Clipboard,
+  Clipboard, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useFocusEffect } from '@react-navigation/native';
-import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
+import QRCode from 'react-native-qrcode-svg';
+import { Spacing, Radius, FontSize, FontWeight } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../components/Toast';
+import Icon from '../components/Icon';
 import { loadWallet, generateWallet, registerWalletOnServer, fetchWhitelist } from '../services/walletService';
 import { syncWhitelist, getWhitelist } from '../db/whitelistRepository';
 
-const AddressItem = ({ item, isMe }) => (
-  <View style={[styles.addrItem, isMe && { borderColor: Colors.accentDim }]}>
-    <View style={[styles.addrAvatar, isMe && { backgroundColor: Colors.accentGlow }]}>
-      <Text style={[styles.addrAvatarText, isMe && { color: Colors.accent }]}>
+const { width } = Dimensions.get('window');
+const isTablet  = width >= 768;
+const fs        = (n) => isTablet ? n * 1.25 : n;
+const QR_SIZE   = isTablet ? 180 : 140;
+
+const AddressItem = ({ item, isMe, theme }) => (
+  <View style={[styles.addrItem, {
+    backgroundColor: theme.bgCard,
+    borderColor: isMe ? theme.accent : theme.bgBorder,
+  }]}>
+    <View style={[styles.addrAvatar, { backgroundColor: isMe ? theme.accentGlow : theme.bgSurface }]}>
+      <Text style={[styles.addrAvatarTxt, { color: isMe ? theme.accent : theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
         {(item.label || '?').slice(0, 2).toUpperCase()}
       </Text>
     </View>
     <View style={styles.addrInfo}>
       <View style={styles.addrRow}>
-        <Text style={styles.addrName}>{item.label || 'Sin nombre'}</Text>
-        {isMe && <View style={styles.meBadge}><Text style={styles.meBadgeText}>YO</Text></View>}
+        <Text style={[styles.addrName, { color: theme.textPrimary, fontSize: fs(FontSize.sm) }]}>
+          {item.label || 'Sin nombre'}
+        </Text>
+        {isMe && (
+          <View style={[styles.meBadge, { backgroundColor: theme.accentGlow }]}>
+            <Text style={[styles.meBadgeTxt, { color: theme.accent }]}>YO</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.addrHex} numberOfLines={1}>
-        {item.address.slice(0, 12)}...{item.address.slice(-8)}
+      <Text style={[styles.addrHex, { color: theme.textMuted, fontSize: fs(FontSize.xs) }]} numberOfLines={1}>
+        {item.address.slice(0, 14)}...{item.address.slice(-8)}
       </Text>
     </View>
-    <View style={styles.addrDot} />
+    <View style={[styles.addrDot, { backgroundColor: theme.success }]} />
   </View>
 );
 
 const WalletScreen = () => {
+  const { theme, isDark, toggleTheme } = useTheme();
+  const { showToast } = useToast();
+  const s = makeStyles(theme);
+
   const [wallet,    setWallet]    = useState(null);
   const [whitelist, setWhitelist] = useState([]);
   const [syncing,   setSyncing]   = useState(false);
@@ -51,14 +69,28 @@ const WalletScreen = () => {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const w   = await generateWallet();
-      const res = await registerWalletOnServer('Mi Wallet');
-      setWallet(w);
-      Alert.alert('Wallet creada', `Address: ${w.address}\n\n${res.message || ''}`);
+      await generateWallet();
+      try { await registerWalletOnServer('Mi Wallet'); } catch {}
       await loadData();
+      showToast('Wallet creada correctamente', 'success');
     } catch (e) {
-      Alert.alert('Error', e.message);
+      showToast(e.message, 'error');
     } finally { setCreating(false); }
+  };
+
+  const handleCopy = () => {
+    if (!wallet) return;
+    Clipboard.setString(wallet.address);
+    showToast('Address copiado', 'success');
+  };
+
+  const handleRegister = async () => {
+    try {
+      const res = await registerWalletOnServer('Mi Wallet');
+      showToast(res.message || 'Registrado', res.ok ? 'success' : 'error');
+    } catch (e) {
+      showToast(e.message, 'error');
+    }
   };
 
   const handleSync = async () => {
@@ -67,93 +99,119 @@ const WalletScreen = () => {
       const wallets = await fetchWhitelist();
       syncWhitelist(wallets);
       setWhitelist(getWhitelist());
-      Alert.alert('Lista actualizada', `${wallets.length} firmantes sincronizados`);
+      showToast(`${wallets.length} firmantes sincronizados`, 'success');
     } catch (e) {
-      Alert.alert('Error de sincronización', e.message);
+      showToast(e.message, 'error');
     } finally { setSyncing(false); }
   };
 
-  const handleCopy = () => {
-    if (!wallet) return;
-    Clipboard.setString(wallet.address);
-    Alert.alert('Copiado', 'Address copiado al portapapeles');
-  };
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Wallet</Text>
+    <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+
+      {/* Header */}
+      <View style={[s.header, { borderBottomColor: theme.bgBorder }]}>
+        <Text style={[s.headerTitle, { color: theme.textPrimary, fontSize: fs(FontSize.lg) }]}>
+          Wallet
+        </Text>
+        <TouchableOpacity onPress={toggleTheme} style={s.themeBtn}>
+          <Icon name={isDark ? 'sun' : 'moon'} size={20} color={theme.textSecondary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
 
-        {/* Mi wallet */}
         {wallet ? (
-          <View style={styles.walletCard}>
-            <Text style={styles.walletCardLabel}>Mi address (pública)</Text>
-            <Text style={styles.walletCardAddress}>{wallet.address}</Text>
-            <View style={styles.walletBtns}>
-              <TouchableOpacity style={styles.walletBtn} onPress={handleCopy}>
-                <Text style={styles.walletBtnIcon}>📋</Text>
-                <Text style={styles.walletBtnText}>Copiar</Text>
+          <View style={[s.walletCard, { backgroundColor: theme.brand }]}>
+            {/* QR centrado */}
+            <View style={s.qrContainer}>
+              <View style={s.qrBox}>
+                <QRCode
+                  value={wallet.address}
+                  size={QR_SIZE}
+                  color="#000000"
+                  backgroundColor="#FFFFFF"
+                />
+              </View>
+            </View>
+
+            {/* Address */}
+            <Text style={s.walletLabel}>Mi address (pública)</Text>
+            <Text style={s.walletAddress}>{wallet.address}</Text>
+
+            {/* Acciones */}
+            <View style={s.walletBtns}>
+              <TouchableOpacity style={s.walletBtn} onPress={handleCopy}>
+                <Icon name="copy" size={18} color="#fff" />
+                <Text style={s.walletBtnTxt}>Copiar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.walletBtn} onPress={async () => {
-                try {
-                  const res = await registerWalletOnServer('Mi Wallet');
-                  Alert.alert('Resultado', res.message);
-                } catch (e) { Alert.alert('Error', e.message); }
-              }}>
-                <Text style={styles.walletBtnIcon}>📤</Text>
-                <Text style={styles.walletBtnText}>Registrar</Text>
+              <TouchableOpacity style={s.walletBtn} onPress={handleRegister}>
+                <Icon name="sync" size={18} color="#fff" />
+                <Text style={s.walletBtnTxt}>Registrar</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
-          <TouchableOpacity style={styles.createCard} onPress={handleCreate} disabled={creating}>
+          <TouchableOpacity
+            style={[s.createCard, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}
+            onPress={handleCreate}
+            disabled={creating}
+          >
             {creating ? (
-              <ActivityIndicator color={Colors.accent} size="large" />
+              <ActivityIndicator color={theme.accent} size="large" />
             ) : (
               <>
-                <Text style={{ fontSize: 40 }}>🔑</Text>
-                <Text style={styles.createTitle}>Crear mi wallet</Text>
-                <Text style={styles.createSub}>Genera tu identidad ECDSA para firmar</Text>
+                <View style={[s.createIconBox, { backgroundColor: theme.accentGlow }]}>
+                  <Icon name="lockOpen" size={36} color={theme.accent} />
+                </View>
+                <Text style={[s.createTitle, { color: theme.textPrimary, fontSize: fs(FontSize.lg) }]}>
+                  Crear mi wallet
+                </Text>
+                <Text style={[s.createSub, { color: theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
+                  Genera tu identidad ECDSA para firmar documentos
+                </Text>
               </>
             )}
           </TouchableOpacity>
         )}
 
         {/* Lista blanca */}
-        <View style={styles.section}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Lista blanca</Text>
-            <Text style={styles.sectionCount}>{whitelist.length} firmantes</Text>
+        <View style={s.section}>
+          <View style={s.sectionRow}>
+            <Text style={[s.sectionTitle, { color: theme.textMuted }]}>Lista blanca</Text>
+            <Text style={[s.sectionCount, { color: theme.textSecondary, fontSize: fs(FontSize.xs) }]}>
+              {whitelist.length} firmantes
+            </Text>
           </View>
 
-          <TouchableOpacity style={styles.syncBtn} onPress={handleSync} disabled={syncing}>
-            {syncing ? (
-              <ActivityIndicator color={Colors.accent} size="small" />
-            ) : (
-              <>
-                <Text style={styles.syncIcon}>🔄</Text>
-                <Text style={styles.syncText}>Sincronizar del servidor</Text>
-              </>
-            )}
+          <TouchableOpacity
+            style={[s.syncBtn, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}
+            onPress={handleSync}
+            disabled={syncing}
+          >
+            {syncing
+              ? <ActivityIndicator color={theme.accent} size="small" />
+              : <Icon name="sync" size={18} color={theme.accent} />
+            }
+            <Text style={[s.syncTxt, { color: theme.accent, fontSize: fs(FontSize.md) }]}>
+              {syncing ? 'Sincronizando...' : 'Sincronizar del servidor'}
+            </Text>
           </TouchableOpacity>
 
           {whitelist.length === 0 ? (
-            <View style={styles.emptyList}>
-              <Text style={styles.emptyListText}>
+            <View style={[s.emptyList, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+              <Text style={[s.emptyListTxt, { color: theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
                 Sin firmantes. Sincroniza para descargar la lista.
               </Text>
             </View>
           ) : (
-            <View style={styles.addrList}>
+            <View style={s.addrList}>
               {whitelist.map(item => (
                 <AddressItem
                   key={item.id}
                   item={item}
                   isMe={wallet && item.address.toLowerCase() === wallet.address.toLowerCase()}
+                  theme={theme}
                 />
               ))}
             </View>
@@ -165,48 +223,49 @@ const WalletScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.bg },
-  header:  { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1, borderBottomColor: Colors.bgBorder },
-  headerTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  scroll:  { flex: 1 },
+const makeStyles = (t) => StyleSheet.create({
+  safe:    { flex: 1 },
+  header:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1 },
+  headerTitle: { fontWeight: FontWeight.bold },
+  themeBtn:{ padding: Spacing.sm },
   content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
 
-  walletCard: { backgroundColor: '#0d1f1f', borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.bgBorder, gap: Spacing.md },
-  walletCardLabel:   { fontSize: FontSize.xs, color: Colors.textMuted, letterSpacing: 0.1, textTransform: 'uppercase' },
-  walletCardAddress: { fontSize: FontSize.xs, color: Colors.accent, fontFamily: 'monospace', lineHeight: 18, letterSpacing: 0.3 },
-  walletBtns: { flexDirection: 'row', gap: Spacing.sm },
-  walletBtn:  { flex: 1, backgroundColor: Colors.accentGlow, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.accentDim, paddingVertical: Spacing.sm + 2, alignItems: 'center', gap: 4 },
-  walletBtnIcon: { fontSize: 18 },
-  walletBtnText: { fontSize: FontSize.xs, color: Colors.accent, fontWeight: FontWeight.medium },
+  walletCard:   { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', gap: Spacing.md },
+  qrContainer:  { width: '100%', alignItems: 'center' },
+  qrBox:        { padding: 12, backgroundColor: '#fff', borderRadius: Radius.md },
+  walletLabel:  { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.8, textTransform: 'uppercase' },
+  walletAddress:{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace', textAlign: 'center', lineHeight: 18 },
+  walletBtns:   { flexDirection: 'row', gap: Spacing.sm, width: '100%' },
+  walletBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.md, paddingVertical: Spacing.sm + 2 },
+  walletBtnTxt: { fontSize: FontSize.sm, color: '#fff', fontWeight: FontWeight.medium },
 
-  createCard:  { backgroundColor: Colors.bgSurface, borderRadius: Radius.lg, padding: Spacing.xl, borderWidth: 1, borderColor: Colors.bgBorder, borderStyle: 'dashed', alignItems: 'center', gap: Spacing.sm },
-  createTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.textPrimary },
-  createSub:   { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
+  createCard:   { borderRadius: Radius.lg, padding: Spacing.xl, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', gap: Spacing.md },
+  createIconBox:{ width: 72, height: 72, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
+  createTitle:  { fontWeight: FontWeight.bold, textAlign: 'center' },
+  createSub:    { textAlign: 'center', lineHeight: 20 },
 
-  section:     { gap: Spacing.sm },
-  sectionRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
-  sectionTitle:{ fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase' },
-  sectionCount:{ fontSize: FontSize.xs, color: Colors.textSecondary },
+  section:      { gap: Spacing.sm },
+  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
+  sectionTitle: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase' },
+  sectionCount: {},
 
-  syncBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.bgSurface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.bgBorder },
-  syncIcon: { fontSize: 18 },
-  syncText: { fontSize: FontSize.md, color: Colors.accent, fontWeight: FontWeight.medium },
+  syncBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
+  syncTxt:  { fontWeight: FontWeight.medium },
 
-  emptyList:    { backgroundColor: Colors.bgSurface, borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: Colors.bgBorder },
-  emptyListText:{ fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
+  emptyList:    { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', borderWidth: 1 },
+  emptyListTxt: { textAlign: 'center', lineHeight: 20 },
 
   addrList: { gap: Spacing.xs },
-  addrItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.bgSurface, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.bgBorder },
-  addrAvatar:     { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.bgCard, alignItems: 'center', justifyContent: 'center' },
-  addrAvatarText: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.textSecondary },
+  addrItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
+  addrAvatar:  { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  addrAvatarTxt:{ fontWeight: FontWeight.bold },
   addrInfo: { flex: 1, gap: 3 },
   addrRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  addrName: { fontSize: FontSize.sm, fontWeight: FontWeight.semibold, color: Colors.textPrimary },
-  addrHex:  { fontSize: FontSize.xs, color: Colors.textMuted, fontFamily: 'monospace' },
-  addrDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
-  meBadge:  { paddingHorizontal: 5, paddingVertical: 1, backgroundColor: Colors.accentGlow, borderRadius: 4 },
-  meBadgeText: { fontSize: 9, color: Colors.accent, fontWeight: FontWeight.black, letterSpacing: 0.5 },
+  addrName: { fontWeight: FontWeight.semibold },
+  addrHex:  { fontFamily: 'monospace' },
+  addrDot:  { width: 8, height: 8, borderRadius: 4 },
+  meBadge:  { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  meBadgeTxt:{ fontSize: 9, fontWeight: FontWeight.black, letterSpacing: 0.5 },
 });
 
 export default WalletScreen;
