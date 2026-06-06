@@ -45,3 +45,12 @@ export const parseTrama = (raw) => {
     return { tipo, numero: numId, fecha, id: firmante, docId, textoLibre, raw: s };
   } catch { return null; }
 };
+
+// Separador para vincular UID del tag al payload de firma
+const UID_SEP = '|UID:';
+
+/**
+ * Construye el payload que se firma: trama + separador + uid
+ * Compartido entre NuevoSelloScreen, NuevaValidacionScreen y SellosScreen
+ */
+export const buildSignPayload = (trama, uid) => `${trama}${UID_SEP}${uid}`;

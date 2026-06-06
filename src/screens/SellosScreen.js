@@ -15,9 +15,10 @@ import { getAllSellos, deleteSello } from '../db/sellosRepository';
 import { useNfcWriter, useNfcUidReader } from '../hooks/useNfcWriter';
 import PinConfirmModal from '../components/PinConfirmModal';
 import { signPayload } from '../services/walletService';
-import { buildSignPayload } from './NuevoSelloScreen';
+
 import NfcSheet from '../components/NfcSheet';
 import { hashTrama, shortHash } from '../utils/hash';
+import { buildSignPayload } from '../utils/tramaParser';
 
 const { width } = Dimensions.get('window');
 

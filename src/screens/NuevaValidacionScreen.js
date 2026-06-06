@@ -13,8 +13,8 @@ import ScreenHeader, { StepBar } from '../components/ScreenHeader';
 import QRScanner from '../components/QRScanner';
 import NfcSheet from '../components/NfcSheet';
 import Icon from '../components/Icon';
-import { parseTrama } from '../utils/tramaParser';
-import { buildSignPayload } from './NuevoSelloScreen';
+import { parseTrama, buildSignPayload } from '../utils/tramaParser';
+
 import { hashTrama } from '../utils/hash';
 import { verifySignature } from '../services/walletService';
 import { useNfcNdefReader } from '../hooks/useNfcNdefReader';

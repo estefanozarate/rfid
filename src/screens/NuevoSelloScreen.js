@@ -14,7 +14,7 @@ import QRScanner from '../components/QRScanner';
 import PinConfirmModal from '../components/PinConfirmModal';
 import NfcSheet from '../components/NfcSheet';
 import Icon from '../components/Icon';
-import { parseTrama } from '../utils/tramaParser';
+import { parseTrama, buildSignPayload } from '../utils/tramaParser';
 import { hashTrama } from '../utils/hash';
 import { signPayload, hasWallet, hasPinSetup } from '../services/walletService';
 import { useNfcWriter, useNfcUidReader } from '../hooks/useNfcWriter';
@@ -26,7 +26,7 @@ const useCameraPermissions = require('expo-camera').useCameraPermissions;
 const UID_SEP = '|UID:';
 
 // Payload que se firma = trama + separador + uid
-export const buildSignPayload = (trama, uid) => `${trama}${UID_SEP}${uid}`;
+
 
 const STEPS     = ['Escanear', 'Leer tag', 'Firmar', 'Sellar', 'Listo'];
 const STEP_SCAN = 'Escanear';
