@@ -13,7 +13,8 @@ const { width } = Dimensions.get('window');
 const ToastContext = createContext({ showToast: () => {} });
 
 export const ToastProvider = ({ children, theme }) => {
-  const insets  = useSafeAreaInsets();
+  let insets = { top: 44 };
+  try { insets = useSafeAreaInsets(); } catch (e) {}
   const [toast, setToast]  = useState(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const timer   = useRef(null);
