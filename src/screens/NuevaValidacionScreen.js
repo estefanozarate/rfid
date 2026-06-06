@@ -87,18 +87,10 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
 
     const debugPayload = buildSignPayload(parsed.raw, result.uid);
     Alert.alert('DEBUG VALIDAR',
-      'UID tag: ' + result.uid +
-      '
-
-Payload (60c):
-' + debugPayload.slice(0, 60) +
-      '
-
-Firma (20c):
-' + firmaHex.slice(0, 20) +
-      '
-
-Whitelist: ' + whitelist.length + ' firmantes'
+      'UID: ' + result.uid + '\n' +
+      'Payload: ' + debugPayload.slice(0, 60) + '\n' +
+      'Firma: ' + firmaHex.slice(0, 20) + '\n' +
+      'Whitelist: ' + whitelist.length
     );
 
     for (const w of whitelist) {
