@@ -201,7 +201,13 @@ export const decryptPrivateKey = async (pin) => {
 export const signWithKey = (payload, privKeyBytes) => {
   const msgHash = keccak_256(new TextEncoder().encode(payload));
   const sig     = secp.sign(msgHash, privKeyBytes);
-  return toHex(sig.toCompactRawBytes());
+  // Guardar el recovery bit como 1 byte extra al final (65 bytes → 130 hex).
+  // Así la verificación hace UNA sola recuperación en vez de probar 0 y 1.
+  const compact = sig.toCompactRawBytes();        // 64 bytes
+  const withRec = new Uint8Array(65);
+  withRec.set(compact, 0);
+  withRec[64] = sig.recovery & 0xff;              // recovery: 0 o 1
+  return toHex(withRec);
 };
 
 /**
@@ -219,30 +225,31 @@ export const signPayload = async (payload, pin) => {
 // ── Verificación ──────────────────────────────────────────
 
 /**
- * Recupera los address candidatos que pudieron firmar — operación cripto
- * que se hace UNA sola vez (no por cada firmante).
+ * Recupera el address que firmó — UNA sola operación criptográfica.
+ * No depende de la whitelist ni de cuántos firmantes haya.
  *
- * La firma compacta (64 bytes) no guarda el recovery bit, así que hay
- * 2 candidatos posibles (recovery 0 y 1). Solo uno es el firmante real,
- * pero ambos se calculan en una sola pasada. Devuelve array de addresses.
+ * La firma incluye el recovery bit (byte 65), así que la recuperación
+ * es directa (1 pasada). Devuelve [address] o [] si la firma es inválida.
  *
- * Esto reemplaza el patrón anterior de llamar verifySignature por cada
- * firmante. Ahora: recuperar 2 candidatos UNA vez → comparar con whitelist.
+ * El llamador busca ese address en la whitelist con un lookup indexado,
+ * lo que escala a millones de firmantes sin costo adicional.
  */
 export const recoverSigner = (payload, sigHex) => {
-  const candidates = [];
   try {
     const msgHash  = keccak_256(new TextEncoder().encode(payload));
-    const sigBytes = fromHex(sigHex);
-    for (let recovery = 0; recovery <= 1; recovery++) {
-      try {
-        const sig    = secp.Signature.fromCompact(sigBytes).addRecoveryBit(recovery);
-        const pubKey = sig.recoverPublicKey(msgHash).toRawBytes(false);
-        candidates.push(pubKeyToAddress(pubKey).toLowerCase());
-      } catch { continue; }
-    }
-  } catch { /* noop */ }
-  return candidates; // 0, 1 o 2 addresses en minúsculas
+    const allBytes = fromHex(sigHex);
+
+    // La firma son 65 bytes: 64 de la firma compacta + 1 del recovery bit.
+    // Con el recovery bit guardado, recuperamos la clave en UNA sola pasada
+    // (sin el recovery habría que probar 0 y 1 → el doble de tiempo).
+    const sigBytes = allBytes.slice(0, 64);
+    const recovery = allBytes[64] & 0x01;
+    const sig      = secp.Signature.fromCompact(sigBytes).addRecoveryBit(recovery);
+    const pubKey   = sig.recoverPublicKey(msgHash).toRawBytes(false);
+    return [pubKeyToAddress(pubKey).toLowerCase()];
+  } catch {
+    return [];
+  }
 };
 
 /**

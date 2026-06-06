@@ -90,8 +90,8 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     let verified    = false;
     let signer      = null;
 
-    // Validación defensiva: la firma compacta secp256k1 son 128 chars hex
-    const firmaValida = /^[0-9a-fA-F]{128}$/.test(firmaHex);
+    // Firma válida: 130 chars hex (64 bytes firma + 1 byte recovery)
+    const firmaValida = /^[0-9a-fA-F]{130}$/.test(firmaHex);
 
     if (!firmaValida) {
       const res = {
@@ -99,7 +99,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
         firmaHex, nfcUid: result.uid,
         detalle: firmaHex.length === 0
           ? 'El tag no contiene una firma'
-          : `Firma con formato inválido (${firmaHex.length} chars, se esperaban 128)`,
+          : `Firma con formato inválido (${firmaHex.length} chars, se esperaban 130)`,
       };
       setResultado(res);
       setNfcStatus('error');
@@ -130,9 +130,11 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
       return;
     }
 
-    // Recuperar el/los address candidatos UNA sola vez (operación cripto cara).
-    // La firma da 2 candidatos posibles; buscamos cada uno en la whitelist
-    // con consulta SQL indexada (instantánea aunque haya millones de firmantes).
+    // Mostrar que está verificando (recoverSigner es la operación cripto cara)
+    setNfcMsg('Verificando firma...');
+    // Ceder un frame para que la UI pinte el mensaje antes del cálculo bloqueante
+    await new Promise(r => setTimeout(r, 50));
+
     const payload    = buildSignPayload(parsed.raw, result.uid);
     const candidates = recoverSigner(payload, firmaHex);
     for (const addr of candidates) {
@@ -150,9 +152,6 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
         ? `Firmado por: ${signer.label}`
         : 'La firma no corresponde a ningún address autorizado',
     };
-
-    // Dejar que el estado 'reading' (procesando) se perciba antes del resultado
-    await new Promise(r => setTimeout(r, 700));
 
     setResultado(res);
     setNfcStatus(verified ? 'success' : 'error');
@@ -221,12 +220,14 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
               Acerca el tag para leer la firma
             </Text>
           </View>
-          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.success }]} onPress={handleReadNfc}>
-            <View style={styles.btnRow}>
-              <Icon name="nfc" size={RFontSize.lg} color="#fff" />
-              <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Leer tag NFC</Text>
-            </View>
-          </TouchableOpacity>
+          {!nfcSheet && (
+            <TouchableOpacity style={[styles.btn, { backgroundColor: theme.success }]} onPress={handleReadNfc}>
+              <View style={styles.btnRow}>
+                <Icon name="nfc" size={RFontSize.lg} color="#fff" />
+                <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Reintentar lectura NFC</Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       )}
 
