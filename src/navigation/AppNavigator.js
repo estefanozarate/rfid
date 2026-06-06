@@ -112,11 +112,17 @@ const MainTabs = () => {
         component={SellarStack}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="seal" label="Sellos" focused={focused} theme={theme} /> }}
+        listeners={({ navigation }) => ({
+          tabPress: () => navigation.navigate('SellarTab', { screen: 'Sellos' }),
+        })}
       />
       <Tab.Screen name="ValidarTab"
         component={ValidarStack}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="shield" label="Validados" focused={focused} theme={theme} /> }}
+        listeners={({ navigation }) => ({
+          tabPress: () => navigation.navigate('ValidarTab', { screen: 'Validaciones' }),
+        })}
       />
       <Tab.Screen name="WalletTab"
         component={WalletScreen}
