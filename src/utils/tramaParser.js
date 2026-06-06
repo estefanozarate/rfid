@@ -1,6 +1,6 @@
 /**
  * utils/tramaParser.js
- * Parser compartido entre QRScannerScreen, NuevoSello y NuevaValidacion.
+ * Parser compartido entre NuevoSello y NuevaValidacion.
  * Formato: {tipo}{numId}{yymmdd}(10){firmante}(17){docId}(0){textoLibre}
  */
 export const parseTrama = (raw) => {
