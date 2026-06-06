@@ -7,7 +7,8 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import QRDisplay from '../components/QRDisplay';
-import { Spacing, Radius, FontSize, FontWeight } from '../theme';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { RFontSize, rs } from '../utils/responsive';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/Toast';
 import Icon from '../components/Icon';
@@ -16,7 +17,6 @@ import { syncWhitelist, getWhitelist } from '../db/whitelistRepository';
 
 const { width } = Dimensions.get('window');
 const isTablet  = width >= 768;
-const fs        = (n) => isTablet ? n * 1.25 : n;
 const QR_SIZE   = isTablet ? 180 : 140;
 
 const AddressItem = ({ item, isMe, theme, s }) => (
@@ -25,13 +25,13 @@ const AddressItem = ({ item, isMe, theme, s }) => (
     borderColor: isMe ? theme.accent : theme.bgBorder,
   }]}>
     <View style={[s.addrAvatar, { backgroundColor: isMe ? theme.accentGlow : theme.bgSurface }]}>
-      <Text style={[s.addrAvatarTxt, { color: isMe ? theme.accent : theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
+      <Text style={[s.addrAvatarTxt, { color: isMe ? theme.accent : theme.textSecondary, fontSize: RFontSize.sm }]}>
         {(item.label || '?').slice(0, 2).toUpperCase()}
       </Text>
     </View>
     <View style={s.addrInfo}>
       <View style={s.addrRow}>
-        <Text style={[s.addrName, { color: theme.textPrimary, fontSize: fs(FontSize.sm) }]}>
+        <Text style={[s.addrName, { color: theme.textPrimary, fontSize: RFontSize.sm }]}>
           {item.label || 'Sin nombre'}
         </Text>
         {isMe && (
@@ -40,7 +40,7 @@ const AddressItem = ({ item, isMe, theme, s }) => (
           </View>
         )}
       </View>
-      <Text style={[s.addrHex, { color: theme.textMuted, fontSize: fs(FontSize.xs) }]} numberOfLines={1}>
+      <Text style={[s.addrHex, { color: theme.textMuted, fontSize: RFontSize.xs }]} numberOfLines={1}>
         {item.address.slice(0, 14)}...{item.address.slice(-8)}
       </Text>
     </View>
@@ -58,11 +58,11 @@ const makeStyles = (t) => StyleSheet.create({
   walletCard:   { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', gap: Spacing.md },
   qrContainer:  { width: '100%', alignItems: 'center' },
   qrBox:        { padding: 12, backgroundColor: '#fff', borderRadius: Radius.md },
-  walletLabel:  { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.8, textTransform: 'uppercase' },
-  walletAddress:{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace', textAlign: 'center', lineHeight: 18 },
+  walletLabel:  { fontSize: RFontSize.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.8, textTransform: 'uppercase' },
+  walletAddress:{ fontSize: RFontSize.xs, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace', textAlign: 'center', lineHeight: 18 },
   walletBtns:   { flexDirection: 'row', gap: Spacing.sm, width: '100%' },
   walletBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.md, paddingVertical: Spacing.sm + 2 },
-  walletBtnTxt: { fontSize: FontSize.sm, color: '#fff', fontWeight: FontWeight.medium },
+  walletBtnTxt: { fontSize: RFontSize.sm, color: '#fff', fontWeight: FontWeight.medium },
 
   createCard:   { borderRadius: Radius.lg, padding: Spacing.xl, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', gap: Spacing.md },
   createIconBox:{ width: 72, height: 72, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
@@ -71,7 +71,7 @@ const makeStyles = (t) => StyleSheet.create({
 
   section:      { gap: Spacing.sm },
   sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
-  sectionTitle: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase' },
+  sectionTitle: { fontSize: RFontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase' },
   sectionCount: {},
 
   syncBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
@@ -163,7 +163,7 @@ const WalletScreen = () => {
 
       {/* Header */}
       <View style={[s.header, { borderBottomColor: theme.bgBorder }]}>
-        <Text style={[s.headerTitle, { color: theme.textPrimary, fontSize: fs(FontSize.lg) }]}>
+        <Text style={[s.headerTitle, { color: theme.textPrimary, fontSize: RFontSize.lg }]}>
           Wallet
         </Text>
         <TouchableOpacity onPress={toggleTheme} style={s.themeBtn}>
@@ -211,10 +211,10 @@ const WalletScreen = () => {
                 <View style={[s.createIconBox, { backgroundColor: theme.accentGlow }]}>
                   <Icon name="lockOpen" size={36} color={theme.accent} />
                 </View>
-                <Text style={[s.createTitle, { color: theme.textPrimary, fontSize: fs(FontSize.lg) }]}>
+                <Text style={[s.createTitle, { color: theme.textPrimary, fontSize: RFontSize.lg }]}>
                   Crear mi wallet
                 </Text>
-                <Text style={[s.createSub, { color: theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
+                <Text style={[s.createSub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
                   Genera tu identidad ECDSA para firmar documentos
                 </Text>
               </>
@@ -226,7 +226,7 @@ const WalletScreen = () => {
         <View style={s.section}>
           <View style={s.sectionRow}>
             <Text style={[s.sectionTitle, { color: theme.textMuted }]}>Lista blanca</Text>
-            <Text style={[s.sectionCount, { color: theme.textSecondary, fontSize: fs(FontSize.xs) }]}>
+            <Text style={[s.sectionCount, { color: theme.textSecondary, fontSize: RFontSize.xs }]}>
               {whitelist.length} firmantes
             </Text>
           </View>
@@ -240,14 +240,14 @@ const WalletScreen = () => {
               ? <ActivityIndicator color={theme.accent} size="small" />
               : <Icon name="sync" size={18} color={theme.accent} />
             }
-            <Text style={[s.syncTxt, { color: theme.accent, fontSize: fs(FontSize.md) }]}>
+            <Text style={[s.syncTxt, { color: theme.accent, fontSize: RFontSize.md }]}>
               {syncing ? 'Sincronizando...' : 'Sincronizar del servidor'}
             </Text>
           </TouchableOpacity>
 
           {whitelist.length === 0 ? (
             <View style={[s.emptyList, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
-              <Text style={[s.emptyListTxt, { color: theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
+              <Text style={[s.emptyListTxt, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
                 Sin firmantes. Sincroniza para descargar la lista.
               </Text>
             </View>

@@ -80,10 +80,49 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
       return;
     }
 
-    const firmaHex  = result.text;
+    const firmaHex  = (result.text || '').trim();
     const whitelist = getWhitelist();
     let verified    = false;
     let signer      = null;
+
+    // Validación defensiva: la firma compacta secp256k1 son 128 chars hex
+    const firmaValida = /^[0-9a-fA-F]{128}$/.test(firmaHex);
+
+    if (!firmaValida) {
+      const res = {
+        valido: false, firmante: null, address: null,
+        firmaHex, nfcUid: result.uid,
+        detalle: firmaHex.length === 0
+          ? 'El tag no contiene una firma'
+          : `Firma con formato inválido (${firmaHex.length} chars, se esperaban 128)`,
+      };
+      setResultado(res);
+      setNfcStatus('error');
+      setNfcMsg('Firma inválida en el tag');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      insertValidacion({
+        trama_hash: hashTrama(parsed.raw),
+        trama: parsed.raw, doc_id: parsed.docId, firmante_id: parsed.id,
+        tipo_doc: parsed.tipo === '1' ? 'DNI' : 'RUC', num_id: parsed.numero,
+        fecha_venc: parsed.fecha, texto_libre: parsed.textoLibre,
+        firma_hex: firmaHex, address_found: '',
+        resultado: 'invalido', detalle: res.detalle, nfc_uid: result.uid,
+      });
+      return;
+    }
+
+    if (whitelist.length === 0) {
+      const res = {
+        valido: false, firmante: null, address: null,
+        firmaHex, nfcUid: result.uid,
+        detalle: 'No hay firmantes en la lista blanca. Ve a Wallet y sincroniza primero.',
+      };
+      setResultado(res);
+      setNfcStatus('error');
+      setNfcMsg('Lista blanca vacía — sincroniza en Wallet');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
 
     for (const w of whitelist) {
       const payload = buildSignPayload(parsed.raw, result.uid);
