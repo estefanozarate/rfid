@@ -272,36 +272,43 @@ const SellosScreen = ({ navigation }) => {
     const sello = pendingSello;
     setPendingSello(null);
 
-    // PASO LENTO primero (descifrado) — SIN tag pegado, con toast
-    showToast('Verificando PIN...', 'info');
+    // Mostrar el sheet de INMEDIATO con mensaje de verificación
+    // (así el usuario nunca ve la lista vacía detrás)
+    setNfcSheet(true);
+    setNfcStatus('waiting');
+    setNfcMsg('Verificando PIN...');
+
+    // PASO LENTO (descifrado) — el sheet ya está visible con 'Verificando...'
     let privKeyBytes;
     try {
       privKeyBytes = await decryptPrivateKey(confirmedPin);
     } catch (e) {
-      showToast(e.message || 'PIN incorrecto', 'error');
+      setNfcStatus('error');
+      setNfcMsg(e.message || 'PIN incorrecto');
       return;
     }
 
-    // Ahora sí: pad NFC. Lo que sigue es instantáneo.
-    await new Promise(r => setTimeout(r, 300));
-    setNfcSheet(true);
-    setNfcStatus('waiting');
+    // Clave lista → cambiar mensaje a 'acerca el tag'. Lo que sigue es instantáneo.
     setNfcMsg('');
 
     await pause();  // liberar canal NFC
     let firmaGenerada = '';
-    const result = await writeTagWithUid(async (uid) => {
-      const payload = buildSignPayload(sello.trama, uid);
-      firmaGenerada = signWithKey(payload, privKeyBytes);  // instantáneo
-      return firmaGenerada;
-    });
+    const result = await writeTagWithUid(
+      async (uid) => {
+        const payload = buildSignPayload(sello.trama, uid);
+        firmaGenerada = signWithKey(payload, privKeyBytes);  // instantáneo
+        return firmaGenerada;
+      },
+      () => setNfcStatus('reading')  // tag detectado → procesando
+    );
 
     // limpiar clave de memoria
     if (privKeyBytes) privKeyBytes.fill(0);
 
     if (result.success) {
+      await new Promise(r => setTimeout(r, 700));
       setNfcStatus('success');
-      setNfcMsg('Firma reescrita y vinculada al nuevo tag');
+      setNfcMsg('Firma reescrita y vinculada al tag');
       showToast('Tag reescrito correctamente', 'success');
     } else {
       setNfcStatus('error');

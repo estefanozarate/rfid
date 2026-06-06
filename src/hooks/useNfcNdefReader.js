@@ -26,7 +26,7 @@ export const useNfcNdefReader = () => {
     setNfcUid(null);
   }, []);
 
-  const readTag = useCallback(async () => {
+  const readTag = useCallback(async (onDetected) => {
     setIsReading(true);
     setError(null);
     setNfcText(null);
@@ -47,6 +47,8 @@ export const useNfcNdefReader = () => {
       // 3. Leer tag
       const tag = await NfcManager.getTag();
       console.log('[NFC] Tag leído:', JSON.stringify(tag));
+      // Tag detectado y leído → avisar a la UI para mostrar 'procesando'
+      if (typeof onDetected === 'function') { try { onDetected(); } catch {} }
 
       const uid = tag?.id
         ? Array.from(tag.id).map(b => b.toString(16).padStart(2, '0')).join(':').toUpperCase()

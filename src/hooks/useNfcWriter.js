@@ -41,7 +41,7 @@ export const useNfcWriterWithUid = () => {
    * @param {Function} buildTextFn - función async que recibe el UID y retorna el texto a escribir
    *   ej: async (uid) => { return await signPayload(buildSignPayload(trama, uid), pin); }
    */
-  const writeTagWithUid = useCallback(async (buildTextFn) => {
+  const writeTagWithUid = useCallback(async (buildTextFn, onDetected) => {
     setIsWriting(true);
     setError(null);
     setSuccess(false);
@@ -60,6 +60,8 @@ export const useNfcWriterWithUid = () => {
         const tag = await NfcManager.getTag();
         uid = getUidFromTag(tag);
         setNfcUid(uid);
+        // Tag detectado → avisar a la UI (mostrar 'procesando')
+        if (typeof onDetected === 'function') { try { onDetected(); } catch {} }
 
         // Verificar read-only
         const status = await NfcManager.ndefHandler.getNdefStatus();
@@ -84,6 +86,7 @@ export const useNfcWriterWithUid = () => {
         const tag2 = await NfcManager.getTag();
         uid = getUidFromTag(tag2);
         setNfcUid(uid);
+        if (typeof onDetected === 'function') { try { onDetected(); } catch {} }
 
         const text = await buildTextFn(uid);
         bytes = Ndef.encodeMessage([Ndef.textRecord(text)]);

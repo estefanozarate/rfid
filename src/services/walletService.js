@@ -217,21 +217,44 @@ export const signPayload = async (payload, pin) => {
 };
 
 // ── Verificación ──────────────────────────────────────────
-export const verifySignature = (payload, sigHex, address) => {
+
+/**
+ * Recupera los address candidatos que pudieron firmar — operación cripto
+ * que se hace UNA sola vez (no por cada firmante).
+ *
+ * La firma compacta (64 bytes) no guarda el recovery bit, así que hay
+ * 2 candidatos posibles (recovery 0 y 1). Solo uno es el firmante real,
+ * pero ambos se calculan en una sola pasada. Devuelve array de addresses.
+ *
+ * Esto reemplaza el patrón anterior de llamar verifySignature por cada
+ * firmante. Ahora: recuperar 2 candidatos UNA vez → comparar con whitelist.
+ */
+export const recoverSigner = (payload, sigHex) => {
+  const candidates = [];
   try {
     const msgHash  = keccak_256(new TextEncoder().encode(payload));
     const sigBytes = fromHex(sigHex);
     for (let recovery = 0; recovery <= 1; recovery++) {
       try {
-        const sig       = secp.Signature.fromCompact(sigBytes).addRecoveryBit(recovery);
-        const pubKey    = sig.recoverPublicKey(msgHash).toRawBytes(false);
-        const recovered = pubKeyToAddress(pubKey);
-        if (recovered.toLowerCase() === address.toLowerCase()) return true;
+        const sig    = secp.Signature.fromCompact(sigBytes).addRecoveryBit(recovery);
+        const pubKey = sig.recoverPublicKey(msgHash).toRawBytes(false);
+        candidates.push(pubKeyToAddress(pubKey).toLowerCase());
       } catch { continue; }
     }
-    return false;
-  } catch { return false; }
+  } catch { /* noop */ }
+  return candidates; // 0, 1 o 2 addresses en minúsculas
 };
+
+/**
+ * Verificación puntual contra UN address (se mantiene para compatibilidad).
+ */
+export const verifySignature = (payload, sigHex, address) => {
+  if (!address) return false;
+  const candidates = recoverSigner(payload, sigHex);
+  return candidates.includes(address.toLowerCase());
+};
+
+
 
 // ── Backend ───────────────────────────────────────────────
 export const registerWalletOnServer = async (label = 'Firmante') => {

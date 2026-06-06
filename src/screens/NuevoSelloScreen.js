@@ -90,7 +90,9 @@ const NuevoSelloScreen = ({ navigation }) => {
       const privKeyBytes = await decryptPrivateKey(confirmedPin);
       privKeyRef.current = privKeyBytes;  // clave lista en memoria
       setVerifying(false);
-      setStep(STEP_NFC);   // ahora sí: mostrar pad NFC (lo que sigue es instantáneo)
+      setStep(STEP_NFC);
+      // Clave lista → lanzar el pad NFC directamente, sin botón intermedio
+      setTimeout(() => handleWriteNfc(), 350);
     } catch (e) {
       setVerifying(false);
       setSignError(e.message || 'PIN incorrecto');
@@ -114,15 +116,19 @@ const NuevoSelloScreen = ({ navigation }) => {
     let firmaGenerada = '';
 
     await pause();  // liberar el canal NFC para la operación
-    const result = await writeTagWithUid(async (uid) => {
-      // uid real del tag. Firmar es INSTANTÁNEO (la clave ya está descifrada)
-      const payload = buildSignPayload(parsed.raw, uid);
-      firmaGenerada = signWithKey(payload, privKeyBytes);
-      return firmaGenerada;
-    });
+    const result = await writeTagWithUid(
+      async (uid) => {
+        // uid real del tag. Firmar es INSTANTÁNEO (la clave ya está descifrada)
+        const payload = buildSignPayload(parsed.raw, uid);
+        firmaGenerada = signWithKey(payload, privKeyBytes);
+        return firmaGenerada;
+      },
+      () => setNfcStatus('reading')  // tag detectado → mostrar 'procesando'
+    );
 
     if (result.success) {
-
+      // Dejar que el estado 'reading' (procesando) se perciba antes del ✓
+      await new Promise(r => setTimeout(r, 700));
       setNfcStatus('success');
       setNfcMsg('Documento sellado correctamente');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

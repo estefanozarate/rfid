@@ -17,10 +17,10 @@ import Icon from '../components/Icon';
 import { parseTrama, buildSignPayload } from '../utils/tramaParser';
 
 import { hashTrama } from '../utils/hash';
-import { verifySignature } from '../services/walletService';
+import { recoverSigner } from '../services/walletService';
 import { useNfcNdefReader } from '../hooks/useNfcNdefReader';
 import { insertValidacion } from '../db/validacionesRepository';
-import { getWhitelist } from '../db/whitelistRepository';
+import { getWhitelist, getWhitelistByAddress } from '../db/whitelistRepository';
 
 const useCameraPermissions = require('expo-camera').useCameraPermissions;
 
@@ -65,9 +65,12 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const result = parseTrama(data);
-    if (!result) { setScanned(false); showToast('Código no reconocido', 'error'); return; }
+    // parseTrama valida el patrón: tipo 0/1, número 11/8 dígitos, fecha YYMMDD, (10)..(17)
+    if (!result) { setScanned(false); showToast('QR no tiene el formato esperado', 'error'); return; }
     setParsed(result);
     setStep(STEP_NFC);
+    // Patrón correcto → lanzar el lector NFC directamente, sin botón intermedio
+    setTimeout(() => handleReadNfc(), 350);
   };
 
   const handleReadNfc = async () => {
@@ -76,7 +79,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     setNfcMsg('');
 
     await pause();  // liberar canal NFC para leer
-    const result = await readTag();
+    const result = await readTag(() => setNfcStatus('reading'));  // tag detectado → procesando
     if (!result.success) {
       setNfcStatus('error');
       setNfcMsg(result.error || 'No se pudo leer el tag');
@@ -84,7 +87,6 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     }
 
     const firmaHex  = (result.text || '').trim();
-    const whitelist = getWhitelist();
     let verified    = false;
     let signer      = null;
 
@@ -114,6 +116,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
       return;
     }
 
+    const whitelist = getWhitelist();
     if (whitelist.length === 0) {
       const res = {
         valido: false, firmante: null, address: null,
@@ -127,11 +130,14 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
       return;
     }
 
-    for (const w of whitelist) {
-      const payload = buildSignPayload(parsed.raw, result.uid);
-      if (verifySignature(payload, firmaHex, w.address)) {
-        verified = true; signer = w; break;
-      }
+    // Recuperar el/los address candidatos UNA sola vez (operación cripto cara).
+    // La firma da 2 candidatos posibles; buscamos cada uno en la whitelist
+    // con consulta SQL indexada (instantánea aunque haya millones de firmantes).
+    const payload    = buildSignPayload(parsed.raw, result.uid);
+    const candidates = recoverSigner(payload, firmaHex);
+    for (const addr of candidates) {
+      const match = getWhitelistByAddress(addr);
+      if (match) { verified = true; signer = match; break; }
     }
 
     const res = {
@@ -144,6 +150,9 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
         ? `Firmado por: ${signer.label}`
         : 'La firma no corresponde a ningún address autorizado',
     };
+
+    // Dejar que el estado 'reading' (procesando) se perciba antes del resultado
+    await new Promise(r => setTimeout(r, 700));
 
     setResultado(res);
     setNfcStatus(verified ? 'success' : 'error');
