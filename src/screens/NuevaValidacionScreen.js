@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -85,17 +85,8 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     let verified    = false;
     let signer      = null;
 
-    const debugPayload = buildSignPayload(parsed.raw, result.uid);
-    Alert.alert('DEBUG VALIDAR',
-      'UID: ' + result.uid + '\n' +
-      'Payload: ' + debugPayload.slice(0, 60) + '\n' +
-      'Firma: ' + firmaHex.slice(0, 20) + '\n' +
-      'Whitelist: ' + whitelist.length
-    );
-
     for (const w of whitelist) {
       const payload = buildSignPayload(parsed.raw, result.uid);
-      
       if (verifySignature(payload, firmaHex, w.address)) {
         verified = true; signer = w; break;
       }

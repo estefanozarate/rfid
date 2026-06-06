@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -98,19 +98,12 @@ const NuevoSelloScreen = ({ navigation }) => {
 
     const result = await writeTagWithUid(async (uid) => {
       // uid es el UID real del tag en esta misma sesión NFC
-      Alert.alert('DEBUG UID', 'UID: ' + uid);
       const payload = buildSignPayload(parsed.raw, uid);
       firmaGenerada = await signPayload(payload, currentPin);
       return firmaGenerada;
     });
 
     if (result.success) {
-      const debugPayload = buildSignPayload(parsed.raw, result.uid);
-      Alert.alert('DEBUG SELLO OK',
-        'UID: ' + result.uid +
-        '\n\nPayload (60c):\n' + debugPayload.slice(0, 60) +
-        '\n\nFirma (20c):\n' + firmaGenerada.slice(0, 20)
-      );
 
       setNfcStatus('success');
       setNfcMsg('Documento sellado correctamente');
@@ -129,7 +122,6 @@ const NuevoSelloScreen = ({ navigation }) => {
         nfc_uid:     result.uid,
       });
     } else {
-      Alert.alert('DEBUG ERROR', 'Error: ' + (result.error || 'desconocido'));
       setNfcStatus('error');
       setNfcMsg(result.error || 'Error al sellar');
     }

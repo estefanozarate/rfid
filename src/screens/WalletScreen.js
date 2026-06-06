@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
   Clipboard, Dimensions,
@@ -48,10 +48,55 @@ const AddressItem = ({ item, isMe, theme }) => (
   </View>
 );
 
+const makeStyles = (t) => StyleSheet.create({
+  safe:    { flex: 1 },
+  header:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1 },
+  headerTitle: { fontWeight: FontWeight.bold },
+  themeBtn:{ padding: Spacing.sm },
+  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
+
+  walletCard:   { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', gap: Spacing.md },
+  qrContainer:  { width: '100%', alignItems: 'center' },
+  qrBox:        { padding: 12, backgroundColor: '#fff', borderRadius: Radius.md },
+  walletLabel:  { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.8, textTransform: 'uppercase' },
+  walletAddress:{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace', textAlign: 'center', lineHeight: 18 },
+  walletBtns:   { flexDirection: 'row', gap: Spacing.sm, width: '100%' },
+  walletBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.md, paddingVertical: Spacing.sm + 2 },
+  walletBtnTxt: { fontSize: FontSize.sm, color: '#fff', fontWeight: FontWeight.medium },
+
+  createCard:   { borderRadius: Radius.lg, padding: Spacing.xl, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', gap: Spacing.md },
+  createIconBox:{ width: 72, height: 72, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
+  createTitle:  { fontWeight: FontWeight.bold, textAlign: 'center' },
+  createSub:    { textAlign: 'center', lineHeight: 20 },
+
+  section:      { gap: Spacing.sm },
+  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
+  sectionTitle: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase' },
+  sectionCount: {},
+
+  syncBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
+  syncTxt:  { fontWeight: FontWeight.medium },
+
+  emptyList:    { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', borderWidth: 1 },
+  emptyListTxt: { textAlign: 'center', lineHeight: 20 },
+
+  addrList: { gap: Spacing.xs },
+  addrItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
+  addrAvatar:  { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  addrAvatarTxt:{ fontWeight: FontWeight.bold },
+  addrInfo: { flex: 1, gap: 3 },
+  addrRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  addrName: { fontWeight: FontWeight.semibold },
+  addrHex:  { fontFamily: 'monospace' },
+  addrDot:  { width: 8, height: 8, borderRadius: 4 },
+  meBadge:  { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  meBadgeTxt:{ fontSize: 9, fontWeight: FontWeight.black, letterSpacing: 0.5 },
+});
+
 const WalletScreen = () => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { showToast } = useToast();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+  const s = makeStyles(theme);
 
   const [wallet,    setWallet]    = useState(null);
   const [whitelist, setWhitelist] = useState([]);
@@ -111,6 +156,8 @@ const WalletScreen = () => {
       setSyncing(false);
     }
   };
+
+  if (!theme || !s) return null;
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]}>
@@ -224,50 +271,5 @@ const WalletScreen = () => {
     </SafeAreaView>
   );
 };
-
-const makeStyles = (t) => StyleSheet.create({
-  safe:    { flex: 1 },
-  header:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4, borderBottomWidth: 1 },
-  headerTitle: { fontWeight: FontWeight.bold },
-  themeBtn:{ padding: Spacing.sm },
-  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
-
-  walletCard:   { borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', gap: Spacing.md },
-  qrContainer:  { width: '100%', alignItems: 'center' },
-  qrBox:        { padding: 12, backgroundColor: '#fff', borderRadius: Radius.md },
-  walletLabel:  { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.8, textTransform: 'uppercase' },
-  walletAddress:{ fontSize: FontSize.xs, color: 'rgba(255,255,255,0.9)', fontFamily: 'monospace', textAlign: 'center', lineHeight: 18 },
-  walletBtns:   { flexDirection: 'row', gap: Spacing.sm, width: '100%' },
-  walletBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: Radius.md, paddingVertical: Spacing.sm + 2 },
-  walletBtnTxt: { fontSize: FontSize.sm, color: '#fff', fontWeight: FontWeight.medium },
-
-  createCard:   { borderRadius: Radius.lg, padding: Spacing.xl, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', gap: Spacing.md },
-  createIconBox:{ width: 72, height: 72, borderRadius: Radius.lg, alignItems: 'center', justifyContent: 'center' },
-  createTitle:  { fontWeight: FontWeight.bold, textAlign: 'center' },
-  createSub:    { textAlign: 'center', lineHeight: 20 },
-
-  section:      { gap: Spacing.sm },
-  sectionRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2 },
-  sectionTitle: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase' },
-  sectionCount: {},
-
-  syncBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
-  syncTxt:  { fontWeight: FontWeight.medium },
-
-  emptyList:    { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center', borderWidth: 1 },
-  emptyListTxt: { textAlign: 'center', lineHeight: 20 },
-
-  addrList: { gap: Spacing.xs },
-  addrItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1 },
-  addrAvatar:  { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  addrAvatarTxt:{ fontWeight: FontWeight.bold },
-  addrInfo: { flex: 1, gap: 3 },
-  addrRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  addrName: { fontWeight: FontWeight.semibold },
-  addrHex:  { fontFamily: 'monospace' },
-  addrDot:  { width: 8, height: 8, borderRadius: 4 },
-  meBadge:  { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
-  meBadgeTxt:{ fontSize: 9, fontWeight: FontWeight.black, letterSpacing: 0.5 },
-});
 
 export default WalletScreen;
