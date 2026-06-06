@@ -45,7 +45,7 @@ const deriveKey = (pin, salt) => {
   const pinBytes  = new TextEncoder().encode(pin);
   const saltBytes = fromHex(salt);
   // PBKDF2 con SHA256, 100k iteraciones, 32 bytes
-  return pbkdf2(sha256, pinBytes, saltBytes, { c: 20000, dkLen: 32 });
+  return pbkdf2(sha256, pinBytes, saltBytes, { c: 10000, dkLen: 32 });
 };
 
 // XOR-based encryption (compatible con RN sin WebCrypto)
@@ -164,17 +164,24 @@ export const loadWallet = async () => {
 export const signPayload = async (payload, pin) => {
   if (!pin) throw new Error('Se requiere PIN para firmar.');
 
-  const valid = await verifyPin(pin);
-  if (!valid) throw new Error('PIN incorrecto.');
-
   const encHex  = await SecureStore.getItemAsync(KEY_PRIVKEY_ENC);
   const saltHex = await SecureStore.getItemAsync(KEY_PRIVKEY_SALT);
   if (!encHex || !saltHex) throw new Error('No hay wallet configurada.');
 
-  // Descifrar privKey
+  // Derivar clave UNA sola vez — verificación y descifrado usan la misma key
   const key          = deriveKey(pin, saltHex);
   const encBytes     = fromHex(encHex);
-  const privKeyBytes = xorEncrypt(encBytes, key); // XOR es su propio inverso
+  const privKeyBytes = xorEncrypt(encBytes, key);
+
+  // Verificar PIN comprobando que el address derivado coincide
+  const pubKey   = secp.getPublicKey(privKeyBytes, false);
+  const hash     = keccak_256(pubKey.slice(1));
+  const derived  = '0x' + toHex(hash.slice(-20));
+  const stored   = await SecureStore.getItemAsync(KEY_ADDRESS);
+  if (!stored || derived.toLowerCase() !== stored.toLowerCase()) {
+    privKeyBytes.fill(0);
+    throw new Error('PIN incorrecto.');
+  }
 
   const msgHash = keccak_256(new TextEncoder().encode(payload));
   const sig     = secp.sign(msgHash, privKeyBytes);
