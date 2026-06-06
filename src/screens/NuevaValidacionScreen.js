@@ -136,8 +136,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
   };
 
   const handleVerValidaciones = () => {
-    const tabNav = navigation.getParent()?.getParent?.() || navigation.getParent();
-    tabNav?.navigate('ValidarTab', { screen: 'Validaciones' });
+    navigation.navigate('Main', { screen: 'ValidarTab' });
   };
 
   return (

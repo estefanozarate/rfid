@@ -151,9 +151,8 @@ const NuevoSelloScreen = ({ navigation }) => {
   };
 
   const handleVerSellos = () => {
-    // Subir hasta el Tab Navigator (puede estar en InicioStack o SellarStack)
-    const tabNav = navigation.getParent()?.getParent?.() || navigation.getParent();
-    tabNav?.navigate('SellarTab', { screen: 'Sellos' });
+    // Modal del Root Stack — goBack cierra el modal, luego navegar al tab
+    navigation.navigate('Main', { screen: 'SellarTab' });
   };
   const handleNuevoSello = () => {
     setStep(STEP_SCAN); setScanned(false); setParsed(null);

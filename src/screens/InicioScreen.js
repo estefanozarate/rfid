@@ -111,7 +111,7 @@ const InicioScreen = ({ navigation }) => {
         {/* Sellar */}
         <TouchableOpacity
           style={[styles.actionCard, styles.actionCardPrimary, { backgroundColor: t.accent }]}
-          onPress={() => navigation.navigate('SellarTab', { screen: 'NuevoSello' })}
+          onPress={() => navigation.navigate('NuevoSello')}
           activeOpacity={0.85}
         >
           <View style={[styles.actionIconBox, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
@@ -131,7 +131,7 @@ const InicioScreen = ({ navigation }) => {
         {/* Validar */}
         <TouchableOpacity
           style={[styles.actionCard, { backgroundColor: t.bgCard, borderColor: t.bgBorder, borderWidth: 1 }]}
-          onPress={() => navigation.navigate('ValidarTab', { screen: 'NuevaValidacion' })}
+          onPress={() => navigation.navigate('NuevaValidacion')}
           activeOpacity={0.85}
         >
           <View style={[styles.actionIconBox, { backgroundColor: t.accentGlow }]}>

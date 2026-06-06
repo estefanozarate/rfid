@@ -1,27 +1,49 @@
+/**
+ * AppNavigator.js
+ *
+ * Arquitectura de navegación:
+ *
+ *   Root Stack
+ *   ├── Welcome
+ *   ├── SetupWallet
+ *   ├── SetupPin
+ *   ├── PinLogin
+ *   └── Main (Bottom Tabs)  ← pantallas principales
+ *       ├── InicioTab   → InicioScreen
+ *       ├── SellarTab   → SellosScreen        (solo lista)
+ *       ├── ValidarTab  → ValidacionesScreen  (solo lista)
+ *       └── WalletTab   → WalletStack
+ *           └── WalletScreen
+ *
+ *   Las acciones NuevoSello y NuevaValidacion son MODALES
+ *   sobre el Root Stack — no viven en ningún tab.
+ *   Así el estado de los tabs nunca se contamina.
+ */
 import React from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { NavigationContainer }        from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator }   from '@react-navigation/bottom-tabs';
 
-import { useTheme }   from '../context/ThemeContext';
-import { Spacing, Radius, FontWeight } from '../theme';
-import { RFontSize, rs } from '../utils/responsive';
-import Icon from '../components/Icon';
+import { useTheme }                     from '../context/ThemeContext';
+import { FontWeight }                   from '../theme';
+import { RFontSize, rs }                from '../utils/responsive';
+import Icon                             from '../components/Icon';
 
 import WelcomeScreen         from '../screens/WelcomeScreen';
 import SetupWalletScreen     from '../screens/SetupWalletScreen';
 import SetupPinScreen        from '../screens/SetupPinScreen';
+import PinLoginScreen        from '../screens/PinLoginScreen';
 import InicioScreen          from '../screens/InicioScreen';
 import SellosScreen          from '../screens/SellosScreen';
-import NuevoSelloScreen      from '../screens/NuevoSelloScreen';
 import ValidacionesScreen    from '../screens/ValidacionesScreen';
-import NuevaValidacionScreen from '../screens/NuevaValidacionScreen';
 import WalletScreen          from '../screens/WalletScreen';
-import PinLoginScreen        from '../screens/PinLoginScreen';
+import NuevoSelloScreen      from '../screens/NuevoSelloScreen';
+import NuevaValidacionScreen from '../screens/NuevaValidacionScreen';
 
-const Stack = createNativeStackNavigator();
-const Tab   = createBottomTabNavigator();
+const RootStack = createNativeStackNavigator();
+const Tab       = createBottomTabNavigator();
+const WalletNav = createNativeStackNavigator();
 
 const { width } = Dimensions.get('window');
 const isTablet  = width >= 768;
@@ -33,7 +55,11 @@ const TabIcon = ({ iconName, label, focused, theme }) => {
   return (
     <View style={[tabSt.wrap, { width: width / 4 - rs(4) }]}>
       <Icon name={iconName} size={RFontSize.xl} color={color} />
-      <Text style={[tabSt.label, { color, fontSize: RFontSize.xs }]} numberOfLines={1} ellipsizeMode="clip">
+      <Text
+        style={[tabSt.label, { color, fontSize: RFontSize.xs }]}
+        numberOfLines={1}
+        ellipsizeMode="clip"
+      >
         {label}
       </Text>
       {focused && <View style={[tabSt.dot, { backgroundColor: theme.accent }]} />}
@@ -47,45 +73,17 @@ const tabSt = StyleSheet.create({
   dot:   { width: rs(4), height: rs(4), borderRadius: rs(2), marginTop: rs(1) },
 });
 
-const makeStackOpts = (theme) => ({
-  headerShown:  false,
-  animation:    'slide_from_right',
-  contentStyle: { backgroundColor: theme.bg },
-});
-
-// ── Stacks ────────────────────────────────────────────────
-const InicioStack = () => {
+// ── Wallet tiene su propio mini-stack para el header ─────
+const WalletStack = () => {
   const { theme } = useTheme();
   return (
-    <Stack.Navigator screenOptions={makeStackOpts(theme)}>
-      <Stack.Screen name="Inicio"          component={InicioScreen} />
-      <Stack.Screen name="NuevoSello"      component={NuevoSelloScreen} />
-      <Stack.Screen name="NuevaValidacion" component={NuevaValidacionScreen} />
-    </Stack.Navigator>
+    <WalletNav.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
+      <WalletNav.Screen name="WalletMain" component={WalletScreen} />
+    </WalletNav.Navigator>
   );
 };
 
-const SellarStack = () => {
-  const { theme } = useTheme();
-  return (
-    <Stack.Navigator screenOptions={makeStackOpts(theme)}>
-      <Stack.Screen name="Sellos"     component={SellosScreen} />
-      <Stack.Screen name="NuevoSello" component={NuevoSelloScreen} />
-    </Stack.Navigator>
-  );
-};
-
-const ValidarStack = () => {
-  const { theme } = useTheme();
-  return (
-    <Stack.Navigator screenOptions={makeStackOpts(theme)}>
-      <Stack.Screen name="Validaciones"    component={ValidacionesScreen} />
-      <Stack.Screen name="NuevaValidacion" component={NuevaValidacionScreen} />
-    </Stack.Navigator>
-  );
-};
-
-// ── Bottom Tabs ───────────────────────────────────────────
+// ── Bottom Tabs — SOLO pantallas de lista ─────────────────
 const MainTabs = () => {
   const { theme } = useTheme();
   return (
@@ -103,29 +101,27 @@ const MainTabs = () => {
         },
       }}
     >
-      <Tab.Screen name="InicioTab"
-        component={InicioStack}
+      <Tab.Screen
+        name="InicioTab"
+        component={InicioScreen}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="home" label="Inicio" focused={focused} theme={theme} /> }}
       />
-      <Tab.Screen name="SellarTab"
-        component={SellarStack}
+      <Tab.Screen
+        name="SellarTab"
+        component={SellosScreen}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="seal" label="Sellos" focused={focused} theme={theme} /> }}
-        listeners={({ navigation }) => ({
-          tabPress: () => navigation.navigate('SellarTab', { screen: 'Sellos' }),
-        })}
       />
-      <Tab.Screen name="ValidarTab"
-        component={ValidarStack}
+      <Tab.Screen
+        name="ValidarTab"
+        component={ValidacionesScreen}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="shield" label="Validados" focused={focused} theme={theme} /> }}
-        listeners={({ navigation }) => ({
-          tabPress: () => navigation.navigate('ValidarTab', { screen: 'Validaciones' }),
-        })}
       />
-      <Tab.Screen name="WalletTab"
-        component={WalletScreen}
+      <Tab.Screen
+        name="WalletTab"
+        component={WalletStack}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="wallet" label="Wallet" focused={focused} theme={theme} /> }}
       />
@@ -133,17 +129,36 @@ const MainTabs = () => {
   );
 };
 
-// ── Root ──────────────────────────────────────────────────
+// ── Root Stack ────────────────────────────────────────────
+// NuevoSello y NuevaValidacion son modales sobre todo
 const AppNavigator = () => {
   const { theme } = useTheme();
+  const stackOpts = { headerShown: false, contentStyle: { backgroundColor: theme.bg } };
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
-        <Stack.Screen name="Welcome"     component={WelcomeScreen} />
-        <Stack.Screen name="SetupWallet" component={SetupWalletScreen} options={{ animation: 'fade' }} />
-        <Stack.Screen name="SetupPin"    component={SetupPinScreen}    options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="Main"        component={MainTabs}          options={{ animation: 'fade' }} />
-      </Stack.Navigator>
+      <RootStack.Navigator screenOptions={stackOpts}>
+        {/* Onboarding */}
+        <RootStack.Screen name="Welcome"     component={WelcomeScreen} />
+        <RootStack.Screen name="SetupWallet" component={SetupWalletScreen} options={{ animation: 'fade' }} />
+        <RootStack.Screen name="SetupPin"    component={SetupPinScreen}    options={{ animation: 'slide_from_right' }} />
+        <RootStack.Screen name="PinLogin"    component={PinLoginScreen}    options={{ animation: 'fade' }} />
+
+        {/* App principal */}
+        <RootStack.Screen name="Main"        component={MainTabs}          options={{ animation: 'fade' }} />
+
+        {/* Acciones — modales sobre el Root, NO dentro de ningún tab */}
+        <RootStack.Screen
+          name="NuevoSello"
+          component={NuevoSelloScreen}
+          options={{ animation: 'slide_from_bottom', gestureEnabled: true }}
+        />
+        <RootStack.Screen
+          name="NuevaValidacion"
+          component={NuevaValidacionScreen}
+          options={{ animation: 'slide_from_bottom', gestureEnabled: true }}
+        />
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 };
