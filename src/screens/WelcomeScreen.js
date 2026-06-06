@@ -1,111 +1,163 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Animated, SafeAreaView,
+  Animated, SafeAreaView, Image, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Colors, Spacing, Radius, FontSize, FontWeight } from '../theme';
+import { Spacing, Radius, FontWeight } from '../theme';
+import { useTheme } from '../context/ThemeContext';
+import { RFontSize, rs } from '../utils/responsive';
 
-const NfcIcon = ({ color = Colors.accent, size = 48 }) => (
-  <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size*0.55, height: size*0.55, borderRadius:(size*0.55)/2, borderWidth:2, borderColor:color, opacity:0.9, position:'absolute' }} />
-    <View style={{ width: size*0.75, height: size*0.75, borderRadius:(size*0.75)/2, borderWidth:1.5, borderColor:color, opacity:0.5, position:'absolute' }} />
-    <View style={{ width: size*0.95, height: size*0.95, borderRadius:(size*0.95)/2, borderWidth:1, borderColor:color, opacity:0.25, position:'absolute' }} />
-    <View style={{ width:8, height:8, borderRadius:4, backgroundColor:color }} />
+const { width } = Dimensions.get('window');
+const isTablet  = width >= 768;
+
+// ── Anillos NFC animados ──────────────────────────────────
+const NfcRings = ({ color, size }) => {
+  const pulse1 = useRef(new Animated.Value(0.9)).current;
+  const pulse2 = useRef(new Animated.Value(0.6)).current;
+  const pulse3 = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const makeLoop = (anim, delay) => Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, { toValue: 1,   duration: 1000, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0.2, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    makeLoop(pulse1, 0).start();
+    makeLoop(pulse2, 350).start();
+    makeLoop(pulse3, 700).start();
+  }, []);
+
+  const s1 = size * 0.38;
+  const s2 = size * 0.62;
+  const s3 = size * 0.86;
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{ position: 'absolute', width: s3, height: s3, borderRadius: s3/2, borderWidth: 1.5, borderColor: color, opacity: pulse3 }} />
+      <Animated.View style={{ position: 'absolute', width: s2, height: s2, borderRadius: s2/2, borderWidth: 1.5, borderColor: color, opacity: pulse2 }} />
+      <Animated.View style={{ position: 'absolute', width: s1, height: s1, borderRadius: s1/2, borderWidth: 2,   borderColor: color, opacity: pulse1 }} />
+      <View style={{ width: size*0.16, height: size*0.16, borderRadius: size*0.08, backgroundColor: color }} />
+    </View>
+  );
+};
+
+// ── Step chip ─────────────────────────────────────────────
+const StepChip = ({ num, label, theme }) => (
+  <View style={[styles.stepChip, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+    <View style={[styles.stepNum, { backgroundColor: theme.accentGlow }]}>
+      <Text style={[styles.stepNumTxt, { color: theme.accent, fontSize: RFontSize.xs - 1 }]}>{num}</Text>
+    </View>
+    <Text style={[styles.stepLabel, { color: theme.textSecondary, fontSize: RFontSize.xs }]}>{label}</Text>
   </View>
 );
 
-const FeatureChip = ({ label }) => (
-  <View style={styles.chip}>
-    <Text style={styles.chipText}>{label}</Text>
-  </View>
-);
-
+// ── Pantalla ──────────────────────────────────────────────
 const WelcomeScreen = ({ navigation }) => {
+  const { theme, isDark } = useTheme();
+
   const logoAnim  = useRef(new Animated.Value(0)).current;
-  const titleAnim = useRef(new Animated.Value(0)).current;
-  const bodyAnim  = useRef(new Animated.Value(0)).current;
+  const heroAnim  = useRef(new Animated.Value(0)).current;
+  const textAnim  = useRef(new Animated.Value(0)).current;
+  const stepsAnim = useRef(new Animated.Value(0)).current;
   const btnAnim   = useRef(new Animated.Value(0)).current;
   const btnScale  = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.stagger(120, [
-      Animated.spring(logoAnim,  { toValue:1, useNativeDriver:true, tension:80, friction:8 }),
-      Animated.spring(titleAnim, { toValue:1, useNativeDriver:true, tension:80, friction:8 }),
-      Animated.spring(bodyAnim,  { toValue:1, useNativeDriver:true, tension:80, friction:8 }),
-      Animated.spring(btnAnim,   { toValue:1, useNativeDriver:true, tension:80, friction:8 }),
+    Animated.stagger(100, [
+      Animated.spring(logoAnim,  { toValue: 1, useNativeDriver: true, tension: 80, friction: 9 }),
+      Animated.spring(heroAnim,  { toValue: 1, useNativeDriver: true, tension: 80, friction: 9 }),
+      Animated.spring(textAnim,  { toValue: 1, useNativeDriver: true, tension: 80, friction: 9 }),
+      Animated.spring(stepsAnim, { toValue: 1, useNativeDriver: true, tension: 80, friction: 9 }),
+      Animated.spring(btnAnim,   { toValue: 1, useNativeDriver: true, tension: 80, friction: 9 }),
     ]).start();
   }, []);
 
-  const handlePressIn  = () => Animated.spring(btnScale, { toValue:0.96, useNativeDriver:true }).start();
-  const handlePressOut = () => Animated.spring(btnScale, { toValue:1,    useNativeDriver:true }).start();
-
   const fadeUp = (anim) => ({
     opacity:   anim,
-    transform: [{ translateY: anim.interpolate({ inputRange:[0,1], outputRange:[20,0] }) }],
+    transform: [{ translateY: anim.interpolate({ inputRange: [0,1], outputRange: [20,0] }) }],
   });
 
+  const handlePressIn  = () => Animated.spring(btnScale, { toValue: 0.96, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.spring(btnScale, { toValue: 1,    useNativeDriver: true }).start();
+
+  const handlePress = async () => {
+    const svc  = require('../services/walletService');
+    const hasW = await svc.hasWallet();
+    const hasP = hasW ? await svc.hasPinSetup() : false;
+    if (!hasW || !hasP) {
+      navigation.navigate('SetupWallet');
+    } else {
+      navigation.navigate('PinLogin');
+    }
+  };
+
+  const RING_SIZE = isTablet ? rs(140) : rs(110);
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <StatusBar style="light" />
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      <View style={styles.gridOverlay} pointerEvents="none">
-        {[...Array(12)].map((_, i) => <View key={i} style={styles.gridDot} />)}
-      </View>
+      <View style={[styles.container, { maxWidth: isTablet ? 480 : '100%', alignSelf: 'center', width: '100%' }]}>
 
-      <View style={styles.container}>
-
-        <Animated.View style={[styles.logoContainer, fadeUp(logoAnim)]}>
-          <View style={styles.logoBg}>
-            <NfcIcon size={52} color={Colors.accent} />
-          </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>stamping.io</Text>
-          </View>
+        {/* Logo Fileserver */}
+        <Animated.View style={[styles.logoRow, fadeUp(logoAnim)]}>
+          <Image
+            source={require('../../assets/logot_crop.png')}
+            style={[styles.logoImg, { height: rs(isTablet ? 48 : 38), width: rs(isTablet ? 160 : 130) }]}
+            resizeMode="contain"
+          />
         </Animated.View>
 
-        <Animated.View style={fadeUp(titleAnim)}>
-          <Text style={styles.title}>
+        {/* Anillos NFC */}
+        <Animated.View style={[styles.heroRow, fadeUp(heroAnim)]}>
+          <NfcRings color={theme.accent} size={RING_SIZE} />
+        </Animated.View>
+
+        {/* Textos */}
+        <Animated.View style={[styles.textBlock, fadeUp(textAnim)]}>
+          <Text style={[styles.pre, { color: theme.accent, fontSize: RFontSize.xs }]}>
+            CRIPTOGRAFÍA AVANZADA
+          </Text>
+          <Text style={[styles.title, { color: theme.textPrimary, fontSize: RFontSize.hero }]}>
             Bienvenido al{'\n'}
-            <Text style={styles.titleAccent}>lector de RFID</Text>
+            <Text style={{ color: theme.accent }}>Sellador NFC</Text>
+          </Text>
+          <Text style={[styles.sub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
+            Firma documentos con tu identidad ECDSA{'\n'}
+            y séllalos en tags NFC — sin internet.
           </Text>
         </Animated.View>
 
-        <Animated.View style={[styles.bodyContainer, fadeUp(bodyAnim)]}>
-          <Text style={styles.subtitle}>
-            Escanea tags NFC/RFID en tiempo real usando la antena de tu dispositivo.
-            Sin simulaciones — datos reales del hardware.
-          </Text>
-          <View style={styles.chipsRow}>
-            <FeatureChip label="NFC-A / NFC-B" />
-            <FeatureChip label="NFC-V (ISO 15693)" />
-            <FeatureChip label="NDEF" />
-          </View>
-          <View style={styles.chipsRow}>
-            <FeatureChip label="ISO-DEP" />
-            <FeatureChip label="UID / Payload" />
-          </View>
+        {/* 3 pasos */}
+        <Animated.View style={[styles.stepsRow, fadeUp(stepsAnim)]}>
+          <StepChip num="1" label="Escanear QR"     theme={theme} />
+          <View style={[styles.stepLine, { backgroundColor: theme.bgBorder }]} />
+          <StepChip num="2" label="Firmar wallet"   theme={theme} />
+          <View style={[styles.stepLine, { backgroundColor: theme.bgBorder }]} />
+          <StepChip num="3" label="Sellar NFC"      theme={theme} />
         </Animated.View>
 
-        {/* Botón — ahora navega a Dashboard */}
-        <Animated.View style={[styles.btnWrapper, fadeUp(btnAnim), { transform:[{ scale:btnScale }] }]}>
+        {/* Botón */}
+        <Animated.View style={[fadeUp(btnAnim), { transform: [{ scale: btnScale }] }]}>
           <TouchableOpacity
-            style={styles.btn}
+            style={[styles.btn, { backgroundColor: theme.brand }]}
             activeOpacity={1}
-            onPress={async () => { const { hasWallet } = require('../services/walletService'); const ok = await hasWallet(); navigation.navigate(ok ? 'Main' : 'SetupWallet'); }}
+            onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
-            accessibilityLabel="Empezar"
-            accessibilityRole="button"
           >
-            <View style={styles.btnSheen} />
-            <Text style={styles.btnText}>Empezar</Text>
-            <Text style={styles.btnArrow}>→</Text>
+            <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Empezar</Text>
+            <Text style={[styles.btnArrow, { fontSize: RFontSize.lg, color: theme.accent }]}>→</Text>
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View style={[styles.footer, fadeUp(btnAnim)]}>
-          <Text style={styles.footerText}>Requiere dispositivo con hardware NFC habilitado</Text>
+        <Animated.View style={fadeUp(btnAnim)}>
+          <Text style={[styles.footer, { color: theme.textMuted, fontSize: RFontSize.xs }]}>
+            Requiere dispositivo con hardware NFC habilitado
+          </Text>
         </Animated.View>
 
       </View>
@@ -114,28 +166,25 @@ const WelcomeScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safe:            { flex:1, backgroundColor:Colors.bg },
-  gridOverlay:     { position:'absolute', top:0, left:0, right:0, bottom:0, flexWrap:'wrap', flexDirection:'row', padding:Spacing.xxl, gap:48, opacity:0.04 },
-  gridDot:         { width:4, height:4, borderRadius:2, backgroundColor:Colors.accent, margin:24 },
-  container:       { flex:1, paddingHorizontal:Spacing.xl, paddingTop:Spacing.xxl+Spacing.lg, paddingBottom:Spacing.xl, justifyContent:'center', gap:Spacing.lg },
-  logoContainer:   { alignItems:'center', marginBottom:Spacing.sm },
-  logoBg:          { width:100, height:100, borderRadius:28, backgroundColor:Colors.accentGlow, borderWidth:1, borderColor:'rgba(0,229,255,0.25)', alignItems:'center', justifyContent:'center' },
-  badge:           { marginTop:Spacing.sm, paddingHorizontal:Spacing.md, paddingVertical:Spacing.xs, backgroundColor:Colors.bgSurface, borderRadius:Radius.full, borderWidth:1, borderColor:Colors.bgBorder },
-  badgeText:       { fontSize:FontSize.xs, fontWeight:FontWeight.bold, color:Colors.textSecondary, letterSpacing:2, textTransform:'uppercase' },
-  title:           { fontSize:FontSize.hero, fontWeight:FontWeight.black, color:Colors.textPrimary, lineHeight:FontSize.hero*1.25, letterSpacing:-0.5 },
-  titleAccent:     { color:Colors.accent },
-  bodyContainer:   { gap:Spacing.md },
-  subtitle:        { fontSize:FontSize.md, color:Colors.textSecondary, lineHeight:FontSize.md*1.6 },
-  chipsRow:        { flexDirection:'row', flexWrap:'wrap', gap:Spacing.xs },
-  chip:            { paddingHorizontal:Spacing.sm+2, paddingVertical:Spacing.xs, backgroundColor:Colors.bgSurface, borderRadius:Radius.full, borderWidth:1, borderColor:Colors.bgBorder },
-  chipText:        { fontSize:FontSize.xs, color:Colors.textSecondary, fontFamily:'monospace' },
-  btnWrapper:      { marginTop:Spacing.sm },
-  btn:             { flexDirection:'row', alignItems:'center', justifyContent:'center', backgroundColor:Colors.accent, borderRadius:Radius.md, paddingVertical:Spacing.md+2, paddingHorizontal:Spacing.xl, gap:Spacing.sm, overflow:'hidden', shadowColor:Colors.accent, shadowOffset:{width:0,height:4}, shadowOpacity:0.4, shadowRadius:12, elevation:8 },
-  btnSheen:        { position:'absolute', top:0, left:0, right:0, height:'50%', backgroundColor:'rgba(255,255,255,0.08)', borderRadius:Radius.md },
-  btnText:         { fontSize:FontSize.lg, fontWeight:FontWeight.bold, color:Colors.bg, letterSpacing:0.3 },
-  btnArrow:        { fontSize:FontSize.lg, color:Colors.bg, fontWeight:FontWeight.bold },
-  footer:          { alignItems:'center', marginTop:Spacing.sm },
-  footerText:      { fontSize:FontSize.xs, color:Colors.textMuted, textAlign:'center' },
+  safe:        { flex: 1 },
+  container:   { flex: 1, paddingHorizontal: rs(Spacing.xl), paddingTop: rs(Spacing.lg), paddingBottom: rs(Spacing.xl), justifyContent: 'center', gap: rs(Spacing.lg) },
+  logoRow:     { alignItems: 'center' },
+  logoImg:     {},
+  heroRow:     { alignItems: 'center' },
+  textBlock:   { alignItems: 'center', gap: rs(Spacing.sm) },
+  pre:         { fontWeight: FontWeight.bold, letterSpacing: 2, textTransform: 'uppercase' },
+  title:       { fontWeight: FontWeight.black, textAlign: 'center', letterSpacing: -0.5, lineHeight: undefined },
+  sub:         { textAlign: 'center', lineHeight: rs(22) },
+  stepsRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  stepChip:    { flexDirection: 'row', alignItems: 'center', gap: rs(5), paddingHorizontal: rs(8), paddingVertical: rs(5), borderRadius: Radius.full, borderWidth: 1 },
+  stepNum:     { width: rs(16), height: rs(16), borderRadius: rs(8), alignItems: 'center', justifyContent: 'center' },
+  stepNumTxt:  { fontWeight: FontWeight.black },
+  stepLabel:   { fontWeight: FontWeight.medium },
+  stepLine:    { flex: 1, height: 1.5, maxWidth: rs(16) },
+  btn:         { borderRadius: Radius.lg, paddingVertical: rs(Spacing.md + 2), flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: rs(Spacing.sm) },
+  btnTxt:      { fontWeight: FontWeight.bold, color: '#ffffff' },
+  btnArrow:    { fontWeight: FontWeight.bold },
+  footer:      { textAlign: 'center' },
 });
 
 export default WelcomeScreen;

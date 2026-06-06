@@ -18,6 +18,7 @@ import NuevoSelloScreen      from '../screens/NuevoSelloScreen';
 import ValidacionesScreen    from '../screens/ValidacionesScreen';
 import NuevaValidacionScreen from '../screens/NuevaValidacionScreen';
 import WalletScreen          from '../screens/WalletScreen';
+import PinLoginScreen        from '../screens/PinLoginScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
