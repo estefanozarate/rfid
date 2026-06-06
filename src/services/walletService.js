@@ -161,14 +161,22 @@ export const loadWallet = async () => {
 };
 
 // ── Firmar (requiere PIN) ─────────────────────────────────
-export const signPayload = async (payload, pin) => {
-  if (!pin) throw new Error('Se requiere PIN para firmar.');
+/**
+ * PASO LENTO (PBKDF2 + descifrado + verificación de PIN).
+ * NO necesita el UID del tag. Se ejecuta mientras el spinner 'Verificando...'
+ * está visible, ANTES de pedir que acerquen el tag NFC.
+ *
+ * Devuelve los bytes de la privKey descifrada para firmar después.
+ * IMPORTANTE: quien llame debe limpiar el resultado con .fill(0) tras usarlo.
+ */
+export const decryptPrivateKey = async (pin) => {
+  if (!pin) throw new Error('Se requiere PIN.');
 
   const encHex  = await SecureStore.getItemAsync(KEY_PRIVKEY_ENC);
   const saltHex = await SecureStore.getItemAsync(KEY_PRIVKEY_SALT);
   if (!encHex || !saltHex) throw new Error('No hay wallet configurada.');
 
-  // Derivar clave UNA sola vez — verificación y descifrado usan la misma key
+  // PBKDF2 (lento) + descifrado XOR
   const key          = deriveKey(pin, saltHex);
   const encBytes     = fromHex(encHex);
   const privKeyBytes = xorEncrypt(encBytes, key);
@@ -183,13 +191,29 @@ export const signPayload = async (payload, pin) => {
     throw new Error('PIN incorrecto.');
   }
 
+  return privKeyBytes; // bytes en claro — usar y limpiar rápido
+};
+
+/**
+ * PASO RÁPIDO (solo secp.sign). Necesita el UID (va en el payload).
+ * Es instantáneo (milisegundos) — se ejecuta con el tag ya pegado.
+ */
+export const signWithKey = (payload, privKeyBytes) => {
   const msgHash = keccak_256(new TextEncoder().encode(payload));
   const sig     = secp.sign(msgHash, privKeyBytes);
-
-  // Limpiar privKey de memoria (best-effort en JS)
-  privKeyBytes.fill(0);
-
   return toHex(sig.toCompactRawBytes());
+};
+
+/**
+ * Firma completa en un paso (descifra + firma). Se mantiene para
+ * compatibilidad, pero para NFC conviene usar decryptPrivateKey + signWithKey
+ * por separado para que el descifrado lento no ocurra con el tag pegado.
+ */
+export const signPayload = async (payload, pin) => {
+  const privKeyBytes = await decryptPrivateKey(pin);
+  const sig = signWithKey(payload, privKeyBytes);
+  privKeyBytes.fill(0);
+  return sig;
 };
 
 // ── Verificación ──────────────────────────────────────────

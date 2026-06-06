@@ -15,7 +15,7 @@ import Icon from '../components/Icon';
 import { getAllSellos, deleteSello } from '../db/sellosRepository';
 import { useNfcWriter, useNfcWriterWithUid } from '../hooks/useNfcWriter';
 import PinConfirmModal from '../components/PinConfirmModal';
-import { signPayload } from '../services/walletService';
+import { decryptPrivateKey, signWithKey } from '../services/walletService';
 
 import NfcSheet from '../components/NfcSheet';
 import { hashTrama, shortHash } from '../utils/hash';
@@ -268,23 +268,36 @@ const SellosScreen = ({ navigation }) => {
   const handleRewritePinSuccess = async (confirmedPin) => {
     setPinModal(false);
     if (!pendingSello) return;
-    await new Promise(r => setTimeout(r, 400));
-
-    setNfcSheet(true);
-    setNfcStatus('waiting');
-    setNfcMsg('');
 
     const sello = pendingSello;
     setPendingSello(null);
 
+    // PASO LENTO primero (descifrado) — SIN tag pegado, con toast
+    showToast('Verificando PIN...', 'info');
+    let privKeyBytes;
+    try {
+      privKeyBytes = await decryptPrivateKey(confirmedPin);
+    } catch (e) {
+      showToast(e.message || 'PIN incorrecto', 'error');
+      return;
+    }
+
+    // Ahora sí: pad NFC. Lo que sigue es instantáneo.
+    await new Promise(r => setTimeout(r, 300));
+    setNfcSheet(true);
+    setNfcStatus('waiting');
+    setNfcMsg('');
+
     await pause();  // liberar canal NFC
-    // Una sola sesión NFC: lee UID, firma con ese UID, escribe
     let firmaGenerada = '';
     const result = await writeTagWithUid(async (uid) => {
       const payload = buildSignPayload(sello.trama, uid);
-      firmaGenerada = await signPayload(payload, confirmedPin);
+      firmaGenerada = signWithKey(payload, privKeyBytes);  // instantáneo
       return firmaGenerada;
     });
+
+    // limpiar clave de memoria
+    if (privKeyBytes) privKeyBytes.fill(0);
 
     if (result.success) {
       setNfcStatus('success');

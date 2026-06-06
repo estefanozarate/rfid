@@ -17,7 +17,7 @@ import NfcSheet from '../components/NfcSheet';
 import Icon from '../components/Icon';
 import { parseTrama, buildSignPayload } from '../utils/tramaParser';
 import { hashTrama } from '../utils/hash';
-import { signPayload, hasWallet, hasPinSetup } from '../services/walletService';
+import { decryptPrivateKey, signWithKey, hasWallet, hasPinSetup } from '../services/walletService';
 import { useNfcWriterWithUid } from '../hooks/useNfcWriter';
 import { insertSello } from '../db/sellosRepository';
 
@@ -48,8 +48,9 @@ const NuevoSelloScreen = ({ navigation }) => {
   const [step,      setStep]      = useState(STEP_SCAN);
   const [scanned,   setScanned]   = useState(false);
   const [parsed,    setParsed]    = useState(null);
-  const pinRef = useRef('');  // PIN en ref — síncrono, no depende de re-render
-  const [signing,   setSigning]   = useState(false);
+  const pinRef     = useRef('');   // PIN temporal
+  const privKeyRef = useRef(null);  // privKey descifrada en memoria (bytes)
+  const [verifying, setVerifying] = useState(false);
   const [signError, setSignError] = useState('');
   const [pinModal,  setPinModal]  = useState(false);
   const [nfcSheet,  setNfcSheet]  = useState(false);
@@ -80,10 +81,20 @@ const NuevoSelloScreen = ({ navigation }) => {
     setPinModal(true);
   };
 
-  const handlePinSuccess = (confirmedPin) => {
+  const handlePinSuccess = async (confirmedPin) => {
     setPinModal(false);
-    pinRef.current = confirmedPin;  // guardado síncrono
-    setStep(STEP_NFC);
+    setVerifying(true);   // spinner 'Verificando...'
+    setSignError('');
+    try {
+      // PASO LENTO aquí (PBKDF2 + descifrado) — SIN tag pegado todavía
+      const privKeyBytes = await decryptPrivateKey(confirmedPin);
+      privKeyRef.current = privKeyBytes;  // clave lista en memoria
+      setVerifying(false);
+      setStep(STEP_NFC);   // ahora sí: mostrar pad NFC (lo que sigue es instantáneo)
+    } catch (e) {
+      setVerifying(false);
+      setSignError(e.message || 'PIN incorrecto');
+    }
   };
 
   // ── Paso 3: Sellar en NFC ─────────────────────────────
@@ -93,10 +104,10 @@ const NuevoSelloScreen = ({ navigation }) => {
     setNfcStatus('waiting');
     setNfcMsg('');
 
-    const currentPin = pinRef.current;
-    if (!currentPin) {
+    const privKeyBytes = privKeyRef.current;
+    if (!privKeyBytes) {
       setNfcStatus('error');
-      setNfcMsg('No se confirmó el PIN. Vuelve a intentar.');
+      setNfcMsg('La clave no está lista. Vuelve a ingresar el PIN.');
       return;
     }
 
@@ -104,9 +115,9 @@ const NuevoSelloScreen = ({ navigation }) => {
 
     await pause();  // liberar el canal NFC para la operación
     const result = await writeTagWithUid(async (uid) => {
-      // uid es el UID real del tag en esta misma sesión NFC
+      // uid real del tag. Firmar es INSTANTÁNEO (la clave ya está descifrada)
       const payload = buildSignPayload(parsed.raw, uid);
-      firmaGenerada = await signPayload(payload, currentPin);
+      firmaGenerada = signWithKey(payload, privKeyBytes);
       return firmaGenerada;
     });
 
@@ -128,11 +139,12 @@ const NuevoSelloScreen = ({ navigation }) => {
         firma_hex:   firmaGenerada,
         nfc_uid:     result.uid,
       });
-      pinRef.current = '';  // limpiar PIN de memoria tras sellar
+      if (privKeyRef.current) { privKeyRef.current.fill(0); privKeyRef.current = null; }
+      pinRef.current = '';
     } else {
       setNfcStatus('error');
       setNfcMsg(result.error || 'Error al sellar');
-      pinRef.current = '';  // limpiar PIN también en error
+      // NO limpiar la clave en error — el usuario puede reintentar acercar el tag
     }
   };
 
@@ -145,6 +157,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   const handleVerSellos  = () => navigation.navigate('Main', { screen: 'SellarTab' });
   const handleNuevoSello = () => {
     setStep(STEP_SCAN); setScanned(false); setParsed(null);
+    if (privKeyRef.current) { privKeyRef.current.fill(0); privKeyRef.current = null; }
     pinRef.current = ''; setSignError(''); setNfcStatus('waiting');
   };
 
@@ -182,8 +195,13 @@ const NuevoSelloScreen = ({ navigation }) => {
             <Text style={[styles.tramaText, { color: theme.accent, fontSize: RFontSize.xs }]}>{parsed.raw}</Text>
           </View>
           {signError ? <Text style={[styles.errTxt, { color: theme.error, fontSize: RFontSize.sm }]}>{signError}</Text> : null}
-          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSign} disabled={signing}>
-            {signing ? <ActivityIndicator color="#fff" /> : (
+          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSign} disabled={verifying}>
+            {verifying ? (
+              <View style={styles.btnRow}>
+                <ActivityIndicator color="#fff" />
+                <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Verificando...</Text>
+              </View>
+            ) : (
               <View style={styles.btnRow}>
                 <Icon name="lock" size={RFontSize.lg} color="#fff" />
                 <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Confirmar con PIN</Text>
