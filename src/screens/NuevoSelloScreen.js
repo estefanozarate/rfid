@@ -32,7 +32,8 @@ const DataRow = ({ label, value, theme, mono }) => (
   <View style={styles.dataRow}>
     <Text style={[styles.dataLabel, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>{label}</Text>
     <Text style={[styles.dataValue, {
-      color: theme.textPrimary, fontSize: mono ? RFontSize.xs : RFontSize.sm,
+      color: theme.textPrimary,
+      fontSize: mono ? RFontSize.xs : RFontSize.sm,
       fontFamily: mono ? 'monospace' : undefined,
     }]} numberOfLines={1}>{String(value || '—')}</Text>
   </View>
@@ -46,7 +47,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   const [step,      setStep]      = useState(STEP_SCAN);
   const [scanned,   setScanned]   = useState(false);
   const [parsed,    setParsed]    = useState(null);
-  const [pin,       setPin]       = useState('');   // PIN guardado para re-firmar con UID
+  const [pin,       setPin]       = useState('');
   const [signing,   setSigning]   = useState(false);
   const [signError, setSignError] = useState('');
   const [pinModal,  setPinModal]  = useState(false);
@@ -79,47 +80,37 @@ const NuevoSelloScreen = ({ navigation }) => {
 
   const handlePinSuccess = (confirmedPin) => {
     setPinModal(false);
-    // Guardamos el PIN en memoria hasta que se escriba el NFC
-    // El PIN se usará para firmar con el UID real del tag
     setPin(confirmedPin);
     setStep(STEP_NFC);
   };
 
-  // ── Paso 3: Escribir NFC (UID se captura silenciosamente) ──
+  // ── Paso 3: Sellar en NFC ─────────────────────────────
+  // Una sola sesión NFC: lee UID → firma con ese UID → escribe
   const handleWriteNfc = async () => {
     setNfcSheet(true);
     setNfcStatus('waiting');
     setNfcMsg('');
 
-    // 1. Escribir un placeholder para obtener el UID del tag
-    //    writeTag nos devuelve el UID del tag al que se conectó
-    //    Primero hacemos una escritura temporal para obtener el UID
-    //    Luego re-firmamos con ese UID y reescribimos la firma real
+    const currentPin = pin;
+    setPin(''); // limpiar de memoria
 
-    try {
-      // Primera pasada: obtener UID escribiendo payload temporal
-      const tempResult = await writeTag('STAMPING_TEMP');
-      if (!tempResult.success) {
-        setNfcStatus('error');
-        setNfcMsg(tempResult.error || 'No se pudo conectar al tag');
-        setPin(''); // limpiar PIN de memoria
-        return;
-      }
+    let firmaGenerada = '';
 
-      const uid = tempResult.uid;
+    const result = await writeTagWithUid(async (uid) => {
+      // uid es el UID real del tag en esta misma sesión NFC
+      Alert.alert('DEBUG UID', 'UID: ' + uid);
+      const payload = buildSignPayload(parsed.raw, uid);
+      firmaGenerada = await signPayload(payload, currentPin);
+      return firmaGenerada;
+    });
 
-      // Segunda pasada: firmar con el UID real y escribir la firma definitiva
-      setNfcMsg('Firmando...');
-      const payload  = buildSignPayload(parsed.raw, uid);
-      const firmaHex = await signPayload(payload, pin);
-      setPin(''); // limpiar PIN de memoria inmediatamente después de usar
-
-      const finalResult = await writeTag(firmaHex);
-      if (!finalResult.success) {
-        setNfcStatus('error');
-        setNfcMsg(finalResult.error || 'Error al escribir la firma');
-        return;
-      }
+    if (result.success) {
+      const debugPayload = buildSignPayload(parsed.raw, result.uid);
+      Alert.alert('DEBUG SELLO OK',
+        'UID: ' + result.uid +
+        '\n\nPayload (60c):\n' + debugPayload.slice(0, 60) +
+        '\n\nFirma (20c):\n' + firmaGenerada.slice(0, 20)
+      );
 
       setNfcStatus('success');
       setNfcMsg('Documento sellado correctamente');
@@ -134,14 +125,13 @@ const NuevoSelloScreen = ({ navigation }) => {
         num_id:      parsed.numero,
         fecha_venc:  parsed.fecha,
         texto_libre: parsed.textoLibre,
-        firma_hex:   firmaHex,
-        nfc_uid:     uid,
+        firma_hex:   firmaGenerada,
+        nfc_uid:     result.uid,
       });
-
-    } catch (e) {
+    } else {
+      Alert.alert('DEBUG ERROR', 'Error: ' + (result.error || 'desconocido'));
       setNfcStatus('error');
-      setNfcMsg(e.message || 'Error al sellar');
-      setPin('');
+      setNfcMsg(result.error || 'Error al sellar');
     }
   };
 
@@ -150,10 +140,7 @@ const NuevoSelloScreen = ({ navigation }) => {
     if (nfcStatus === 'success') setStep(STEP_DONE);
   };
 
-  const handleVerSellos = () => {
-    // Modal del Root Stack — goBack cierra el modal, luego navegar al tab
-    navigation.navigate('Main', { screen: 'SellarTab' });
-  };
+  const handleVerSellos  = () => navigation.navigate('Main', { screen: 'SellarTab' });
   const handleNuevoSello = () => {
     setStep(STEP_SCAN); setScanned(false); setParsed(null);
     setPin(''); setSignError(''); setNfcStatus('waiting');
@@ -176,7 +163,7 @@ const NuevoSelloScreen = ({ navigation }) => {
             </View>
       )}
 
-      {/* PASO 2: Confirmar datos y firmar */}
+      {/* PASO 2: Confirmar y firmar */}
       {step === STEP_SIGN && parsed && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
@@ -204,7 +191,7 @@ const NuevoSelloScreen = ({ navigation }) => {
         </ScrollView>
       )}
 
-      {/* PASO 3: Sellar en NFC */}
+      {/* PASO 3: Sellar NFC */}
       {step === STEP_NFC && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={[styles.nfcCard, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
