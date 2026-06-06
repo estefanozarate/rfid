@@ -19,32 +19,32 @@ const isTablet  = width >= 768;
 const fs        = (n) => isTablet ? n * 1.25 : n;
 const QR_SIZE   = isTablet ? 180 : 140;
 
-const AddressItem = ({ item, isMe, theme }) => (
-  <View style={[styles.addrItem, {
+const AddressItem = ({ item, isMe, theme, s }) => (
+  <View style={[s.addrItem, {
     backgroundColor: theme.bgCard,
     borderColor: isMe ? theme.accent : theme.bgBorder,
   }]}>
-    <View style={[styles.addrAvatar, { backgroundColor: isMe ? theme.accentGlow : theme.bgSurface }]}>
-      <Text style={[styles.addrAvatarTxt, { color: isMe ? theme.accent : theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
+    <View style={[s.addrAvatar, { backgroundColor: isMe ? theme.accentGlow : theme.bgSurface }]}>
+      <Text style={[s.addrAvatarTxt, { color: isMe ? theme.accent : theme.textSecondary, fontSize: fs(FontSize.sm) }]}>
         {(item.label || '?').slice(0, 2).toUpperCase()}
       </Text>
     </View>
-    <View style={styles.addrInfo}>
-      <View style={styles.addrRow}>
-        <Text style={[styles.addrName, { color: theme.textPrimary, fontSize: fs(FontSize.sm) }]}>
+    <View style={s.addrInfo}>
+      <View style={s.addrRow}>
+        <Text style={[s.addrName, { color: theme.textPrimary, fontSize: fs(FontSize.sm) }]}>
           {item.label || 'Sin nombre'}
         </Text>
         {isMe && (
-          <View style={[styles.meBadge, { backgroundColor: theme.accentGlow }]}>
-            <Text style={[styles.meBadgeTxt, { color: theme.accent }]}>YO</Text>
+          <View style={[s.meBadge, { backgroundColor: theme.accentGlow }]}>
+            <Text style={[s.meBadgeTxt, { color: theme.accent }]}>YO</Text>
           </View>
         )}
       </View>
-      <Text style={[styles.addrHex, { color: theme.textMuted, fontSize: fs(FontSize.xs) }]} numberOfLines={1}>
+      <Text style={[s.addrHex, { color: theme.textMuted, fontSize: fs(FontSize.xs) }]} numberOfLines={1}>
         {item.address.slice(0, 14)}...{item.address.slice(-8)}
       </Text>
     </View>
-    <View style={[styles.addrDot, { backgroundColor: theme.success }]} />
+    <View style={[s.addrDot, { backgroundColor: theme.success }]} />
   </View>
 );
 
@@ -157,8 +157,6 @@ const WalletScreen = () => {
     }
   };
 
-  if (!theme || !s) return null;
-
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -261,6 +259,7 @@ const WalletScreen = () => {
                   item={item}
                   isMe={wallet && item.address.toLowerCase() === wallet.address.toLowerCase()}
                   theme={theme}
+                  s={s}
                 />
               ))}
             </View>
