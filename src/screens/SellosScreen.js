@@ -12,7 +12,7 @@ import { useToast } from '../components/Toast';
 import { RFontSize, rs } from '../utils/responsive';
 import Icon from '../components/Icon';
 import { getAllSellos, deleteSello } from '../db/sellosRepository';
-import { useNfcWriter, useNfcUidReader } from '../hooks/useNfcWriter';
+import { useNfcWriter, useNfcWriterWithUid } from '../hooks/useNfcWriter';
 import PinConfirmModal from '../components/PinConfirmModal';
 import { signPayload } from '../services/walletService';
 
@@ -240,8 +240,8 @@ const SellosScreen = ({ navigation }) => {
   const [nfcMsg,     setNfcMsg]     = useState(null);
   const [pinModal,   setPinModal]   = useState(false);
   const [pendingSello, setPendingSello] = useState(null);
-  const { writeTag }  = useNfcWriter();
-  const { readUid }   = useNfcUidReader();
+  const { writeTag }          = useNfcWriter();
+  const { writeTagWithUid }   = useNfcWriterWithUid();
 
   useFocusEffect(useCallback(() => {
     const data = getAllSellos();
@@ -263,44 +263,34 @@ const SellosScreen = ({ navigation }) => {
     setPinModal(true);
   };
 
-  const handleRewritePinSuccess = async (pin) => {
+  const handleRewritePinSuccess = async (confirmedPin) => {
     setPinModal(false);
     if (!pendingSello) return;
     await new Promise(r => setTimeout(r, 400));
 
-    // 1. Leer UID del tag destino
     setNfcSheet(true);
     setNfcStatus('waiting');
-    setNfcMsg('Acerca el tag para leer su UID...');
-    const uidResult = await readUid();
-    if (!uidResult.success) {
-      setNfcStatus('error');
-      setNfcMsg(uidResult.error || 'No se pudo leer el tag');
-      return;
-    }
+    setNfcMsg('');
 
-    // 2. Re-firmar con el UID del nuevo tag
-    setNfcMsg('Firmando con nuevo UID...');
-    try {
-      const payload  = buildSignPayload(pendingSello.trama, uidResult.uid);
-      const newFirma = await signPayload(payload, pin);
-
-      // 3. Escribir la nueva firma
-      setNfcMsg('Escribiendo firma en el tag...');
-      const writeResult = await writeTag(newFirma);
-      if (writeResult.success) {
-        setNfcStatus('success');
-        setNfcMsg('Firma reescrita y vinculada al nuevo tag');
-        showToast('Tag reescrito correctamente', 'success');
-      } else {
-        setNfcStatus('error');
-        setNfcMsg(writeResult.error || 'Error al escribir');
-      }
-    } catch (e) {
-      setNfcStatus('error');
-      setNfcMsg(e.message);
-    }
+    const sello = pendingSello;
     setPendingSello(null);
+
+    // Una sola sesión NFC: lee UID, firma con ese UID, escribe
+    let firmaGenerada = '';
+    const result = await writeTagWithUid(async (uid) => {
+      const payload = buildSignPayload(sello.trama, uid);
+      firmaGenerada = await signPayload(payload, confirmedPin);
+      return firmaGenerada;
+    });
+
+    if (result.success) {
+      setNfcStatus('success');
+      setNfcMsg('Firma reescrita y vinculada al nuevo tag');
+      showToast('Tag reescrito correctamente', 'success');
+    } else {
+      setNfcStatus('error');
+      setNfcMsg(result.error || 'Error al reescribir');
+    }
   };
 
   return (

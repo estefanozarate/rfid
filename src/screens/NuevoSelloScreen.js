@@ -17,7 +17,7 @@ import Icon from '../components/Icon';
 import { parseTrama, buildSignPayload } from '../utils/tramaParser';
 import { hashTrama } from '../utils/hash';
 import { signPayload, hasWallet, hasPinSetup } from '../services/walletService';
-import { useNfcWriter } from '../hooks/useNfcWriter';
+import { useNfcWriterWithUid } from '../hooks/useNfcWriter';
 import { insertSello } from '../db/sellosRepository';
 
 const useCameraPermissions = require('expo-camera').useCameraPermissions;
@@ -54,7 +54,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   const [nfcStatus, setNfcStatus] = useState('waiting');
   const [nfcMsg,    setNfcMsg]    = useState('');
 
-  const { writeTag } = useNfcWriter();
+  const { writeTagWithUid } = useNfcWriterWithUid();
 
   React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
