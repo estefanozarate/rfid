@@ -14,6 +14,7 @@ import QRScanner from '../components/QRScanner';
 import NfcSheet from '../components/NfcSheet';
 import Icon from '../components/Icon';
 import { parseTrama } from '../utils/tramaParser';
+import { buildSignPayload } from './NuevoSelloScreen';
 import { hashTrama } from '../utils/hash';
 import { verifySignature } from '../services/walletService';
 import { useNfcNdefReader } from '../hooks/useNfcNdefReader';
@@ -85,7 +86,8 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     let signer      = null;
 
     for (const w of whitelist) {
-      if (verifySignature(parsed.raw, firmaHex, w.address)) {
+      const payload = buildSignPayload(parsed.raw, result.uid);
+      if (verifySignature(payload, firmaHex, w.address)) {
         verified = true; signer = w; break;
       }
     }

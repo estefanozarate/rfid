@@ -12,7 +12,10 @@ import { useToast } from '../components/Toast';
 import { RFontSize, rs } from '../utils/responsive';
 import Icon from '../components/Icon';
 import { getAllSellos, deleteSello } from '../db/sellosRepository';
-import { useNfcWriter } from '../hooks/useNfcWriter';
+import { useNfcWriter, useNfcUidReader } from '../hooks/useNfcWriter';
+import PinConfirmModal from '../components/PinConfirmModal';
+import { signPayload } from '../services/walletService';
+import { buildSignPayload } from './NuevoSelloScreen';
 import NfcSheet from '../components/NfcSheet';
 import { hashTrama, shortHash } from '../utils/hash';
 
@@ -234,7 +237,10 @@ const SellosScreen = ({ navigation }) => {
   const [nfcSheet,   setNfcSheet]   = useState(false);
   const [nfcStatus,  setNfcStatus]  = useState('waiting');
   const [nfcMsg,     setNfcMsg]     = useState(null);
-  const { writeTag } = useNfcWriter();
+  const [pinModal,   setPinModal]   = useState(false);
+  const [pendingSello, setPendingSello] = useState(null);
+  const { writeTag }  = useNfcWriter();
+  const { readUid }   = useNfcUidReader();
 
   useFocusEffect(useCallback(() => {
     const data = getAllSellos();
@@ -250,21 +256,50 @@ const SellosScreen = ({ navigation }) => {
     showToast('Sello eliminado', 'warning');
   };
 
-  const handleRewrite = async (sello) => {
+  const handleRewrite = (sello) => {
     setDetailOpen(false);
+    setPendingSello(sello);
+    setPinModal(true);
+  };
+
+  const handleRewritePinSuccess = async (pin) => {
+    setPinModal(false);
+    if (!pendingSello) return;
     await new Promise(r => setTimeout(r, 400));
+
+    // 1. Leer UID del tag destino
     setNfcSheet(true);
     setNfcStatus('waiting');
-    setNfcMsg(null);
-    const result = await writeTag(sello.firma_hex);
-    if (result.success) {
-      setNfcStatus('success');
-      setNfcMsg('Firma reescrita en el tag');
-      showToast('Tag reescrito correctamente', 'success');
-    } else {
+    setNfcMsg('Acerca el tag para leer su UID...');
+    const uidResult = await readUid();
+    if (!uidResult.success) {
       setNfcStatus('error');
-      setNfcMsg(result.error);
+      setNfcMsg(uidResult.error || 'No se pudo leer el tag');
+      return;
     }
+
+    // 2. Re-firmar con el UID del nuevo tag
+    setNfcMsg('Firmando con nuevo UID...');
+    try {
+      const payload  = buildSignPayload(pendingSello.trama, uidResult.uid);
+      const newFirma = await signPayload(payload, pin);
+
+      // 3. Escribir la nueva firma
+      setNfcMsg('Escribiendo firma en el tag...');
+      const writeResult = await writeTag(newFirma);
+      if (writeResult.success) {
+        setNfcStatus('success');
+        setNfcMsg('Firma reescrita y vinculada al nuevo tag');
+        showToast('Tag reescrito correctamente', 'success');
+      } else {
+        setNfcStatus('error');
+        setNfcMsg(writeResult.error || 'Error al escribir');
+      }
+    } catch (e) {
+      setNfcStatus('error');
+      setNfcMsg(e.message);
+    }
+    setPendingSello(null);
   };
 
   return (
@@ -325,6 +360,7 @@ const SellosScreen = ({ navigation }) => {
 
       <NfcSheet visible={nfcSheet} mode="write" status={nfcStatus} message={nfcMsg}
         onCancel={() => setNfcSheet(false)} />
+      <PinConfirmModal visible={pinModal} onSuccess={handleRewritePinSuccess} onCancel={() => setPinModal(false)} theme={theme} />
     </SafeAreaView>
   );
 };
