@@ -17,20 +17,13 @@ import Icon from '../components/Icon';
 import { parseTrama, buildSignPayload } from '../utils/tramaParser';
 import { hashTrama } from '../utils/hash';
 import { signPayload, hasWallet, hasPinSetup } from '../services/walletService';
-import { useNfcWriter, useNfcUidReader } from '../hooks/useNfcWriter';
+import { useNfcWriter } from '../hooks/useNfcWriter';
 import { insertSello } from '../db/sellosRepository';
 
 const useCameraPermissions = require('expo-camera').useCameraPermissions;
 
-// Separador para vincular UID al payload
-const UID_SEP = '|UID:';
-
-// Payload que se firma = trama + separador + uid
-
-
-const STEPS     = ['Escanear', 'Leer tag', 'Firmar', 'Sellar', 'Listo'];
+const STEPS     = ['Escanear', 'Firmar', 'Sellar', 'Listo'];
 const STEP_SCAN = 'Escanear';
-const STEP_UID  = 'Leer tag';
 const STEP_SIGN = 'Firmar';
 const STEP_NFC  = 'Sellar';
 const STEP_DONE = 'Listo';
@@ -38,9 +31,10 @@ const STEP_DONE = 'Listo';
 const DataRow = ({ label, value, theme, mono }) => (
   <View style={styles.dataRow}>
     <Text style={[styles.dataLabel, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>{label}</Text>
-    <Text style={[styles.dataValue, { color: theme.textPrimary, fontSize: mono ? RFontSize.xs : RFontSize.sm, fontFamily: mono ? 'monospace' : undefined }]} numberOfLines={1}>
-      {String(value || '—')}
-    </Text>
+    <Text style={[styles.dataValue, {
+      color: theme.textPrimary, fontSize: mono ? RFontSize.xs : RFontSize.sm,
+      fontFamily: mono ? 'monospace' : undefined,
+    }]} numberOfLines={1}>{String(value || '—')}</Text>
   </View>
 );
 
@@ -52,20 +46,15 @@ const NuevoSelloScreen = ({ navigation }) => {
   const [step,      setStep]      = useState(STEP_SCAN);
   const [scanned,   setScanned]   = useState(false);
   const [parsed,    setParsed]    = useState(null);
-  const [tagUid,    setTagUid]    = useState(null);
-  const [firmaHex,  setFirmaHex]  = useState('');
+  const [pin,       setPin]       = useState('');   // PIN guardado para re-firmar con UID
   const [signing,   setSigning]   = useState(false);
   const [signError, setSignError] = useState('');
   const [pinModal,  setPinModal]  = useState(false);
   const [nfcSheet,  setNfcSheet]  = useState(false);
   const [nfcStatus, setNfcStatus] = useState('waiting');
   const [nfcMsg,    setNfcMsg]    = useState('');
-  // Para NfcSheet de lectura de UID
-  const [uidSheet,  setUidSheet]  = useState(false);
-  const [uidStatus, setUidStatus] = useState('waiting');
 
-  const { writeTag }  = useNfcWriter();
-  const { readUid }   = useNfcUidReader();
+  const { writeTag } = useNfcWriter();
 
   React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
@@ -77,30 +66,10 @@ const NuevoSelloScreen = ({ navigation }) => {
     const result = parseTrama(data);
     if (!result) { setScanned(false); showToast('Código no reconocido', 'error'); return; }
     setParsed(result);
-    setStep(STEP_UID);
+    setStep(STEP_SIGN);
   };
 
-  // ── Paso 2: Leer UID del tag ──────────────────────────
-  const handleReadUid = async () => {
-    setUidSheet(true);
-    setUidStatus('waiting');
-    const result = await readUid();
-    if (result.success) {
-      setTagUid(result.uid);
-      setUidStatus('success');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // Avanzar automáticamente al cerrar el sheet
-    } else {
-      setUidStatus('error');
-    }
-  };
-
-  const handleUidSheetClose = () => {
-    setUidSheet(false);
-    if (uidStatus === 'success') setStep(STEP_SIGN);
-  };
-
-  // ── Paso 3: PIN → Firmar ──────────────────────────────
+  // ── Paso 2: Confirmar PIN ─────────────────────────────
   const handleSign = async () => {
     const ok     = await hasWallet();
     const hasPin = ok ? await hasPinSetup() : false;
@@ -108,38 +77,54 @@ const NuevoSelloScreen = ({ navigation }) => {
     setPinModal(true);
   };
 
-  const handlePinSuccess = async (pin) => {
+  const handlePinSuccess = (confirmedPin) => {
     setPinModal(false);
-    setSigning(true);
-    setSignError('');
-    try {
-      // El payload incluye el UID del tag para vinculación criptográfica
-      const payload = buildSignPayload(parsed.raw, tagUid);
-      const firma   = await signPayload(payload, pin);
-      setFirmaHex(firma);
-      setStep(STEP_NFC);
-    } catch (e) {
-      setSignError(e.message);
-    } finally { setSigning(false); }
+    // Guardamos el PIN en memoria hasta que se escriba el NFC
+    // El PIN se usará para firmar con el UID real del tag
+    setPin(confirmedPin);
+    setStep(STEP_NFC);
   };
 
-  // ── Paso 4: Escribir NFC ──────────────────────────────
+  // ── Paso 3: Escribir NFC (UID se captura silenciosamente) ──
   const handleWriteNfc = async () => {
     setNfcSheet(true);
     setNfcStatus('waiting');
     setNfcMsg('');
-    const result = await writeTag(firmaHex);
 
-    if (result.success) {
-      // Verificar que el UID coincide con el que se usó para firmar
-      if (result.uid !== tagUid) {
+    // 1. Escribir un placeholder para obtener el UID del tag
+    //    writeTag nos devuelve el UID del tag al que se conectó
+    //    Primero hacemos una escritura temporal para obtener el UID
+    //    Luego re-firmamos con ese UID y reescribimos la firma real
+
+    try {
+      // Primera pasada: obtener UID escribiendo payload temporal
+      const tempResult = await writeTag('STAMPING_TEMP');
+      if (!tempResult.success) {
         setNfcStatus('error');
-        setNfcMsg(`Tag diferente al que se leyó (UID: ${result.uid}). Usa el mismo tag.`);
+        setNfcMsg(tempResult.error || 'No se pudo conectar al tag');
+        setPin(''); // limpiar PIN de memoria
         return;
       }
+
+      const uid = tempResult.uid;
+
+      // Segunda pasada: firmar con el UID real y escribir la firma definitiva
+      setNfcMsg('Firmando...');
+      const payload  = buildSignPayload(parsed.raw, uid);
+      const firmaHex = await signPayload(payload, pin);
+      setPin(''); // limpiar PIN de memoria inmediatamente después de usar
+
+      const finalResult = await writeTag(firmaHex);
+      if (!finalResult.success) {
+        setNfcStatus('error');
+        setNfcMsg(finalResult.error || 'Error al escribir la firma');
+        return;
+      }
+
       setNfcStatus('success');
       setNfcMsg('Documento sellado correctamente');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
       insertSello({
         trama_hash:  hashTrama(parsed.raw),
         trama:       parsed.raw,
@@ -150,11 +135,13 @@ const NuevoSelloScreen = ({ navigation }) => {
         fecha_venc:  parsed.fecha,
         texto_libre: parsed.textoLibre,
         firma_hex:   firmaHex,
-        nfc_uid:     tagUid,
+        nfc_uid:     uid,
       });
-    } else {
+
+    } catch (e) {
       setNfcStatus('error');
-      setNfcMsg(result.error || 'Error al escribir el tag');
+      setNfcMsg(e.message || 'Error al sellar');
+      setPin('');
     }
   };
 
@@ -165,8 +152,8 @@ const NuevoSelloScreen = ({ navigation }) => {
 
   const handleVerSellos  = () => navigation.getParent()?.navigate('SellarTab', { screen: 'Sellos' });
   const handleNuevoSello = () => {
-    setStep(STEP_SCAN); setScanned(false); setParsed(null); setTagUid(null);
-    setFirmaHex(''); setSignError(''); setNfcStatus('waiting'); setUidStatus('waiting');
+    setStep(STEP_SCAN); setScanned(false); setParsed(null);
+    setPin(''); setSignError(''); setNfcStatus('waiting');
   };
 
   return (
@@ -186,38 +173,7 @@ const NuevoSelloScreen = ({ navigation }) => {
             </View>
       )}
 
-      {/* PASO 2: Leer UID */}
-      {step === STEP_UID && parsed && (
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
-            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>DOCUMENTO ESCANEADO</Text>
-            <DataRow label="Doc ID"  value={parsed.docId}  theme={theme} />
-            <DataRow label="Tipo"    value={parsed.tipo === '1' ? 'DNI' : 'RUC'} theme={theme} />
-            <DataRow label="Número"  value={parsed.numero} theme={theme} />
-          </View>
-
-          <View style={[styles.infoCard, { backgroundColor: theme.accentGlow, borderColor: theme.accentDim || theme.bgBorder }]}>
-            <Icon name="tag" size={RFontSize.xl} color={theme.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.infoTitle, { color: theme.accent, fontSize: RFontSize.md }]}>
-                Acerca el tag NFC
-              </Text>
-              <Text style={[styles.infoSub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
-                Necesitamos leer el UID del tag para vincularlo a la firma
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleReadUid}>
-            <View style={styles.btnRow}>
-              <Icon name="nfc" size={RFontSize.lg} color="#fff" />
-              <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Leer UID del tag</Text>
-            </View>
-          </TouchableOpacity>
-        </ScrollView>
-      )}
-
-      {/* PASO 3: Confirmar y firmar */}
+      {/* PASO 2: Confirmar datos y firmar */}
       {step === STEP_SIGN && parsed && (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
@@ -229,54 +185,44 @@ const NuevoSelloScreen = ({ navigation }) => {
             <DataRow label="Doc ID"      value={parsed.docId}    theme={theme} />
             {parsed.textoLibre ? <DataRow label="Texto libre" value={parsed.textoLibre} theme={theme} /> : null}
           </View>
-
           <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
-            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>TAG VINCULADO</Text>
-            <DataRow label="UID" value={tagUid} theme={theme} mono />
-            <Text style={[styles.uidNote, { color: theme.textMuted, fontSize: RFontSize.xs - 1 }]}>
-              La firma incluirá este UID — el sello solo verifica en este tag
-            </Text>
+            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>TRAMA</Text>
+            <Text style={[styles.tramaText, { color: theme.accent, fontSize: RFontSize.xs }]}>{parsed.raw}</Text>
           </View>
-
           {signError ? <Text style={[styles.errTxt, { color: theme.error, fontSize: RFontSize.sm }]}>{signError}</Text> : null}
-
           <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSign} disabled={signing}>
             {signing ? <ActivityIndicator color="#fff" /> : (
               <View style={styles.btnRow}>
                 <Icon name="lock" size={RFontSize.lg} color="#fff" />
-                <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Firmar con mi wallet</Text>
+                <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Confirmar con PIN</Text>
               </View>
             )}
           </TouchableOpacity>
         </ScrollView>
       )}
 
-      {/* PASO 4: Escribir NFC */}
+      {/* PASO 3: Sellar en NFC */}
       {step === STEP_NFC && (
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={[styles.card, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
-            <Text style={[styles.cardTitle, { color: theme.textMuted, fontSize: RFontSize.xs }]}>FIRMA GENERADA</Text>
-            <Text style={[styles.firmaText, { color: theme.accent, fontSize: rs(9) }]} numberOfLines={4}>{firmaHex}</Text>
-          </View>
-          <View style={[styles.infoCard, { backgroundColor: theme.accentGlow, borderColor: theme.bgBorder }]}>
-            <Icon name="tag" size={RFontSize.xl} color={theme.accent} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.infoTitle, { color: theme.accent, fontSize: RFontSize.md }]}>Usa el mismo tag</Text>
-              <Text style={[styles.infoSub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
-                UID: {tagUid} — la firma está vinculada a este tag específico
-              </Text>
-            </View>
+          <View style={[styles.nfcCard, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
+            <Icon name="nfc" size={rs(52)} color={theme.accent} />
+            <Text style={[styles.nfcTitle, { color: theme.textPrimary, fontSize: RFontSize.xl }]}>
+              Listo para sellar
+            </Text>
+            <Text style={[styles.nfcSub, { color: theme.textSecondary, fontSize: RFontSize.sm }]}>
+              Acerca el tag NFC al teléfono para grabar el sello
+            </Text>
           </View>
           <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleWriteNfc}>
             <View style={styles.btnRow}>
               <Icon name="nfc" size={RFontSize.lg} color="#fff" />
-              <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Escribir en tag NFC</Text>
+              <Text style={[styles.btnTxt, { fontSize: RFontSize.lg }]}>Sellar documento</Text>
             </View>
           </TouchableOpacity>
         </ScrollView>
       )}
 
-      {/* PASO 5: Listo */}
+      {/* PASO 4: Listo */}
       {step === STEP_DONE && (
         <View style={styles.doneContainer}>
           <View style={[styles.doneCircle, { backgroundColor: theme.successGlow, borderColor: theme.success }]}>
@@ -284,7 +230,7 @@ const NuevoSelloScreen = ({ navigation }) => {
           </View>
           <Text style={[styles.doneTitle, { color: theme.success, fontSize: RFontSize.xxl }]}>¡Documento sellado!</Text>
           <Text style={[styles.doneSub, { color: theme.textSecondary, fontSize: RFontSize.md }]}>
-            La firma fue escrita y vinculada al tag UID: {tagUid}
+            La firma fue escrita en el tag NFC.
           </Text>
           <View style={styles.doneBtns}>
             <TouchableOpacity style={[styles.btn, { flex: 1, backgroundColor: theme.accent }]} onPress={handleVerSellos}>
@@ -297,19 +243,7 @@ const NuevoSelloScreen = ({ navigation }) => {
         </View>
       )}
 
-      {/* Sheet lectura de UID */}
-      <NfcSheet
-        visible={uidSheet}
-        mode="read"
-        status={uidStatus}
-        message={uidStatus === 'success' ? `UID leído: ${tagUid}` : null}
-        onCancel={handleUidSheetClose}
-      />
-
-      {/* Sheet escritura */}
       <NfcSheet visible={nfcSheet} mode="write" status={nfcStatus} message={nfcMsg} onCancel={handleSheetClose} />
-
-      {/* Modal PIN */}
       <PinConfirmModal visible={pinModal} onSuccess={handlePinSuccess} onCancel={() => setPinModal(false)} theme={theme} />
     </SafeAreaView>
   );
@@ -319,16 +253,15 @@ const styles = StyleSheet.create({
   centered:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rs(Spacing.md), padding: rs(Spacing.xl) },
   content:      { padding: rs(Spacing.md), gap: rs(Spacing.md), paddingBottom: rs(Spacing.xxl) },
   card:         { borderRadius: Radius.lg, padding: rs(Spacing.md), borderWidth: 1, gap: rs(6) },
-  infoCard:     { borderRadius: Radius.lg, padding: rs(Spacing.md), borderWidth: 1, flexDirection: 'row', alignItems: 'flex-start', gap: rs(Spacing.md) },
-  infoTitle:    { fontWeight: FontWeight.bold },
-  infoSub:      { marginTop: rs(2), lineHeight: rs(18) },
   cardTitle:    { fontWeight: FontWeight.bold, letterSpacing: 1, textTransform: 'uppercase', marginBottom: rs(4) },
   dataRow:      { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: rs(3) },
   dataLabel:    {},
   dataValue:    { fontWeight: FontWeight.medium, maxWidth: '58%', textAlign: 'right' },
-  uidNote:      { marginTop: rs(4), lineHeight: rs(16) },
-  firmaText:    { fontFamily: 'monospace', lineHeight: rs(16) },
+  tramaText:    { fontFamily: 'monospace', lineHeight: rs(18) },
   errTxt:       { textAlign: 'center', fontWeight: FontWeight.medium },
+  nfcCard:      { borderRadius: Radius.lg, padding: rs(Spacing.xl), borderWidth: 1, alignItems: 'center', gap: rs(Spacing.md) },
+  nfcTitle:     { fontWeight: FontWeight.bold, textAlign: 'center' },
+  nfcSub:       { textAlign: 'center', lineHeight: rs(20) },
   btn:          { borderRadius: Radius.md, paddingVertical: rs(Spacing.md), alignItems: 'center', justifyContent: 'center' },
   btnRow:       { flexDirection: 'row', alignItems: 'center', gap: rs(Spacing.sm) },
   btnTxt:       { color: '#fff', fontWeight: FontWeight.bold },
