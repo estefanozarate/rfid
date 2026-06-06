@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView,
+  SafeAreaView, ScrollView, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -86,15 +86,24 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     let signer      = null;
 
     const debugPayload = buildSignPayload(parsed.raw, result.uid);
-    console.log('[DEBUG VALIDAR] UID leído del tag:', result.uid);
-    console.log('[DEBUG VALIDAR] Trama del QR:', parsed.raw);
-    console.log('[DEBUG VALIDAR] Payload a verificar:', debugPayload);
-    console.log('[DEBUG VALIDAR] Firma leída del tag:', firmaHex.slice(0, 20) + '...');
-    console.log('[DEBUG VALIDAR] Firmantes en whitelist:', whitelist.length);
+    Alert.alert('DEBUG VALIDAR',
+      'UID tag: ' + result.uid +
+      '
+
+Payload (60c):
+' + debugPayload.slice(0, 60) +
+      '
+
+Firma (20c):
+' + firmaHex.slice(0, 20) +
+      '
+
+Whitelist: ' + whitelist.length + ' firmantes'
+    );
 
     for (const w of whitelist) {
       const payload = buildSignPayload(parsed.raw, result.uid);
-      console.log('[DEBUG VALIDAR] Verificando contra address:', w.address.slice(0, 12) + '...');
+      
       if (verifySignature(payload, firmaHex, w.address)) {
         verified = true; signer = w; break;
       }
