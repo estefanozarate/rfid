@@ -37,7 +37,7 @@ const InicioScreen = ({ navigation }) => {
   const t = theme;
 
   if (loading) return (
-    <style={{ flex:1, backgroundColor: t.bg, alignItems:'center', justifyContent:'center' }}>
+    <SafeAreaView style={{ flex:1, backgroundColor: t.bg, alignItems:'center', justifyContent:'center' }}>
       <ActivityIndicator color={t.accent} size="large" />
     </SafeAreaView>
   );

@@ -149,7 +149,7 @@ Whitelist: ' + whitelist.length + ' firmantes'
   };
 
   return (
-    <style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <ScreenHeader title="Nueva validación" onBack={() => navigation.goBack()} theme={theme} />

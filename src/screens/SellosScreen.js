@@ -294,7 +294,7 @@ const SellosScreen = ({ navigation }) => {
   };
 
   return (
-    <style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.header, { backgroundColor: theme.bgSurface, borderBottomColor: theme.bgBorder }]}>

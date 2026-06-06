@@ -215,7 +215,7 @@ const SetupPinScreen = ({ navigation, route }) => {
   }, [stage]); // regenerar al cambiar de etapa
 
   return (
-    <style={[styles.safe, { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.container, { maxWidth: PANEL_W, alignSelf: 'center', width: '100%' }]}>

@@ -33,7 +33,7 @@ const SetupWalletScreen = ({ navigation }) => {
   };
 
   return (
-    <style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: rs(Spacing.xl) }}

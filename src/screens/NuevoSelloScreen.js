@@ -147,7 +147,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   };
 
   return (
-    <style={{ flex: 1, backgroundColor: theme.bg }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScreenHeader title="Nuevo sello" onBack={() => navigation.goBack()} theme={theme} />
       <StepBar steps={STEPS} currentStep={step} theme={theme} />

@@ -147,7 +147,7 @@ const PinLoginScreen = ({ navigation }) => {
   };
 
   return (
-    <style={[styles.safe, { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.container, { maxWidth: PANEL_W, alignSelf: 'center', width: '100%' }]}>

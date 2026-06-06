@@ -113,7 +113,7 @@ const WalletScreen = () => {
   };
 
   return (
-    <style={[s.safe, { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}
