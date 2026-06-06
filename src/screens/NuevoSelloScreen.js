@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, ActivityIndicator, Alert,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -147,7 +147,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+    <style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScreenHeader title="Nuevo sello" onBack={() => navigation.goBack()} theme={theme} />
       <StepBar steps={STEPS} currentStep={step} theme={theme} />

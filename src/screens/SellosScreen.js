@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, FlatList, Modal, ScrollView, Dimensions,
+  View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, ScrollView, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, FontWeight } from '../theme';
@@ -294,7 +294,7 @@ const SellosScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+    <style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.header, { backgroundColor: theme.bgSurface, borderBottomColor: theme.bgBorder }]}>

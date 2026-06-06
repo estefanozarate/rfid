@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ActivityIndicator, TextInput,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput,
   KeyboardAvoidingView, Platform, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RFontSize, rs } from '../utils/responsive';
@@ -33,7 +33,7 @@ const SetupWalletScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+    <style={{ flex: 1, backgroundColor: theme.bg }}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: rs(Spacing.xl) }}

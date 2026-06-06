@@ -1,10 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
   Clipboard, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import QRDisplay from '../components/QRDisplay';
 import { Spacing, Radius, FontSize, FontWeight } from '../theme';
@@ -51,7 +51,7 @@ const AddressItem = ({ item, isMe, theme }) => (
 const WalletScreen = () => {
   const { theme, isDark, toggleTheme } = useTheme();
   const { showToast } = useToast();
-  const s = makeStyles(theme);
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const [wallet,    setWallet]    = useState(null);
   const [whitelist, setWhitelist] = useState([]);
@@ -113,7 +113,7 @@ const WalletScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[s.safe, { backgroundColor: theme.bg }]}>
+    <style={[s.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Header */}

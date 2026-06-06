@@ -1,9 +1,9 @@
 import React, { useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, ScrollView, ActivityIndicator, Image,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -37,7 +37,7 @@ const InicioScreen = ({ navigation }) => {
   const t = theme;
 
   if (loading) return (
-    <SafeAreaView style={{ flex:1, backgroundColor: t.bg, alignItems:'center', justifyContent:'center' }}>
+    <style={{ flex:1, backgroundColor: t.bg, alignItems:'center', justifyContent:'center' }}>
       <ActivityIndicator color={t.accent} size="large" />
     </SafeAreaView>
   );

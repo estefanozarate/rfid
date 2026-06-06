@@ -5,10 +5,10 @@
  */
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, Animated, Dimensions, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RFontSize, rs } from '../utils/responsive';
@@ -215,7 +215,7 @@ const SetupPinScreen = ({ navigation, route }) => {
   }, [stage]); // regenerar al cambiar de etapa
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
+    <style={[styles.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.container, { maxWidth: PANEL_W, alignSelf: 'center', width: '100%' }]}>

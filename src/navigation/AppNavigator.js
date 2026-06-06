@@ -43,7 +43,6 @@ import NuevaValidacionScreen from '../screens/NuevaValidacionScreen';
 
 const RootStack = createNativeStackNavigator();
 const Tab       = createBottomTabNavigator();
-const WalletNav = createNativeStackNavigator();
 
 const { width } = Dimensions.get('window');
 const isTablet  = width >= 768;
@@ -74,14 +73,7 @@ const tabSt = StyleSheet.create({
 });
 
 // ── Wallet tiene su propio mini-stack para el header ─────
-const WalletStack = () => {
-  const { theme } = useTheme();
-  return (
-    <WalletNav.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.bg } }}>
-      <WalletNav.Screen name="WalletMain" component={WalletScreen} />
-    </WalletNav.Navigator>
-  );
-};
+// WalletScreen se usa directamente como componente del tab
 
 // ── Bottom Tabs — SOLO pantallas de lista ─────────────────
 const MainTabs = () => {
@@ -121,7 +113,7 @@ const MainTabs = () => {
       />
       <Tab.Screen
         name="WalletTab"
-        component={WalletStack}
+        component={WalletScreen}
         options={{ tabBarIcon: ({ focused }) =>
           <TabIcon iconName="wallet" label="Wallet" focused={focused} theme={theme} /> }}
       />

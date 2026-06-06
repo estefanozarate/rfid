@@ -1,9 +1,9 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
-  SafeAreaView, Animated, Dimensions, Image, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Image, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RFontSize, rs } from '../utils/responsive';
@@ -147,7 +147,7 @@ const PinLoginScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.bg }]}>
+    <style={[styles.safe, { backgroundColor: theme.bg }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.container, { maxWidth: PANEL_W, alignSelf: 'center', width: '100%' }]}>
