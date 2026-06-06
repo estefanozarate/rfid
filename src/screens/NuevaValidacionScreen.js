@@ -85,8 +85,16 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     let verified    = false;
     let signer      = null;
 
+    const debugPayload = buildSignPayload(parsed.raw, result.uid);
+    console.log('[DEBUG VALIDAR] UID leído del tag:', result.uid);
+    console.log('[DEBUG VALIDAR] Trama del QR:', parsed.raw);
+    console.log('[DEBUG VALIDAR] Payload a verificar:', debugPayload);
+    console.log('[DEBUG VALIDAR] Firma leída del tag:', firmaHex.slice(0, 20) + '...');
+    console.log('[DEBUG VALIDAR] Firmantes en whitelist:', whitelist.length);
+
     for (const w of whitelist) {
       const payload = buildSignPayload(parsed.raw, result.uid);
+      console.log('[DEBUG VALIDAR] Verificando contra address:', w.address.slice(0, 12) + '...');
       if (verifySignature(payload, firmaHex, w.address)) {
         verified = true; signer = w; break;
       }
