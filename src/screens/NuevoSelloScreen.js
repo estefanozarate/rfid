@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
 } from 'react-native';
@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/Toast';
+import { useNfcGuardControl } from '../context/NfcGuardContext';
 import { RFontSize, rs } from '../utils/responsive';
 import ScreenHeader, { StepBar } from '../components/ScreenHeader';
 import QRScanner from '../components/QRScanner';
@@ -47,7 +48,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   const [step,      setStep]      = useState(STEP_SCAN);
   const [scanned,   setScanned]   = useState(false);
   const [parsed,    setParsed]    = useState(null);
-  const [pin,       setPin]       = useState('');
+  const pinRef = useRef('');  // PIN en ref — síncrono, no depende de re-render
   const [signing,   setSigning]   = useState(false);
   const [signError, setSignError] = useState('');
   const [pinModal,  setPinModal]  = useState(false);
@@ -56,6 +57,7 @@ const NuevoSelloScreen = ({ navigation }) => {
   const [nfcMsg,    setNfcMsg]    = useState('');
 
   const { writeTagWithUid } = useNfcWriterWithUid();
+  const { pause, resume }   = useNfcGuardControl();
 
   React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
@@ -80,7 +82,7 @@ const NuevoSelloScreen = ({ navigation }) => {
 
   const handlePinSuccess = (confirmedPin) => {
     setPinModal(false);
-    setPin(confirmedPin);
+    pinRef.current = confirmedPin;  // guardado síncrono
     setStep(STEP_NFC);
   };
 
@@ -91,11 +93,16 @@ const NuevoSelloScreen = ({ navigation }) => {
     setNfcStatus('waiting');
     setNfcMsg('');
 
-    const currentPin = pin;
-    setPin(''); // limpiar de memoria
+    const currentPin = pinRef.current;
+    if (!currentPin) {
+      setNfcStatus('error');
+      setNfcMsg('No se confirmó el PIN. Vuelve a intentar.');
+      return;
+    }
 
     let firmaGenerada = '';
 
+    await pause();  // liberar el canal NFC para la operación
     const result = await writeTagWithUid(async (uid) => {
       // uid es el UID real del tag en esta misma sesión NFC
       const payload = buildSignPayload(parsed.raw, uid);
@@ -121,21 +128,24 @@ const NuevoSelloScreen = ({ navigation }) => {
         firma_hex:   firmaGenerada,
         nfc_uid:     result.uid,
       });
+      pinRef.current = '';  // limpiar PIN de memoria tras sellar
     } else {
       setNfcStatus('error');
       setNfcMsg(result.error || 'Error al sellar');
+      pinRef.current = '';  // limpiar PIN también en error
     }
   };
 
   const handleSheetClose = () => {
     setNfcSheet(false);
+    resume();  // reactivar la captura NFC
     if (nfcStatus === 'success') setStep(STEP_DONE);
   };
 
   const handleVerSellos  = () => navigation.navigate('Main', { screen: 'SellarTab' });
   const handleNuevoSello = () => {
     setStep(STEP_SCAN); setScanned(false); setParsed(null);
-    setPin(''); setSignError(''); setNfcStatus('waiting');
+    pinRef.current = ''; setSignError(''); setNfcStatus('waiting');
   };
 
   return (

@@ -26,6 +26,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator }   from '@react-navigation/bottom-tabs';
 
 import { useTheme }                     from '../context/ThemeContext';
+import { NfcGuardProvider }             from '../context/NfcGuardContext';
 import { FontWeight }                   from '../theme';
 import { RFontSize, rs }                from '../utils/responsive';
 import Icon                             from '../components/Icon';
@@ -129,6 +130,7 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer>
+      <NfcGuardProvider>
       <RootStack.Navigator screenOptions={stackOpts}>
         {/* Onboarding */}
         <RootStack.Screen name="Welcome"     component={WelcomeScreen} />
@@ -151,6 +153,7 @@ const AppNavigator = () => {
           options={{ animation: 'slide_from_bottom', gestureEnabled: true }}
         />
       </RootStack.Navigator>
+      </NfcGuardProvider>
     </NavigationContainer>
   );
 };

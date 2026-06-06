@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/Toast';
+import { useNfcGuardControl } from '../context/NfcGuardContext';
 import { RFontSize, rs } from '../utils/responsive';
 import ScreenHeader, { StepBar } from '../components/ScreenHeader';
 import QRScanner from '../components/QRScanner';
@@ -50,6 +51,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
   const [resultado, setResultado] = useState(null);
 
   const { readTag } = useNfcNdefReader();
+  const { pause, resume } = useNfcGuardControl();
 
   React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
@@ -73,6 +75,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     setNfcStatus('waiting');
     setNfcMsg('');
 
+    await pause();  // liberar canal NFC para leer
     const result = await readTag();
     if (!result.success) {
       setNfcStatus('error');
@@ -163,6 +166,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
 
   const handleSheetClose = () => {
     setNfcSheet(false);
+    resume();  // reactivar captura NFC
     if (resultado) setStep(STEP_RESULT);
   };
 

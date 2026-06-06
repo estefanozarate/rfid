@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Spacing, Radius, FontWeight } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../components/Toast';
+import { useNfcGuardControl } from '../context/NfcGuardContext';
 import { RFontSize, rs } from '../utils/responsive';
 import Icon from '../components/Icon';
 import { getAllSellos, deleteSello } from '../db/sellosRepository';
@@ -242,6 +243,7 @@ const SellosScreen = ({ navigation }) => {
   const [pendingSello, setPendingSello] = useState(null);
   const { writeTag }          = useNfcWriter();
   const { writeTagWithUid }   = useNfcWriterWithUid();
+  const { pause, resume }     = useNfcGuardControl();
 
   useFocusEffect(useCallback(() => {
     const data = getAllSellos();
@@ -275,6 +277,7 @@ const SellosScreen = ({ navigation }) => {
     const sello = pendingSello;
     setPendingSello(null);
 
+    await pause();  // liberar canal NFC
     // Una sola sesión NFC: lee UID, firma con ese UID, escribe
     let firmaGenerada = '';
     const result = await writeTagWithUid(async (uid) => {
@@ -350,7 +353,7 @@ const SellosScreen = ({ navigation }) => {
       />
 
       <NfcSheet visible={nfcSheet} mode="write" status={nfcStatus} message={nfcMsg}
-        onCancel={() => setNfcSheet(false)} />
+        onCancel={() => { setNfcSheet(false); resume(); }} />
       <PinConfirmModal visible={pinModal} onSuccess={handleRewritePinSuccess} onCancel={() => setPinModal(false)} theme={theme} />
     </SafeAreaView>
   );
