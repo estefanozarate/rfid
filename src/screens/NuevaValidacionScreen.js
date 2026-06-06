@@ -15,6 +15,7 @@ import QRScanner from '../components/QRScanner';
 import NfcSheet from '../components/NfcSheet';
 import Icon from '../components/Icon';
 import { parseTrama, buildSignPayload } from '../utils/tramaParser';
+import { extractEmbedding } from '../utils/embedding';
 
 import { hashTrama } from '../utils/hash';
 import { recoverSigner } from '../services/walletService';
@@ -45,6 +46,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
   const [step,      setStep]      = useState(STEP_SCAN);
   const [scanned,   setScanned]   = useState(false);
   const [parsed,    setParsed]    = useState(null);
+  const [faceEmbedding, setFaceEmbedding] = useState(null);
   const [nfcSheet,  setNfcSheet]  = useState(false);
   const [nfcStatus, setNfcStatus] = useState('waiting');
   const [nfcMsg,    setNfcMsg]    = useState('');
@@ -56,7 +58,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
   React.useEffect(() => { if (!permission?.granted) requestPermission(); }, []);
 
   const handleReset = () => {
-    setStep(STEP_SCAN); setScanned(false); setParsed(null);
+    setStep(STEP_SCAN); setScanned(false); setParsed(null); setFaceEmbedding(null);
     setNfcStatus('waiting'); setNfcMsg(''); setResultado(null);
   };
 
@@ -68,6 +70,9 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     // parseTrama valida el patrón: tipo 0/1, número 11/8 dígitos, fecha YYMMDD, (10)..(17)
     if (!result) { setScanned(false); showToast('QR no tiene el formato esperado', 'error'); return; }
     setParsed(result);
+    // Extraer el face embedding del textoLibre si el documento lo incluye
+    // (formato FD:B64:... comprimido, o FD:... legacy). null si no hay foto.
+    setFaceEmbedding(extractEmbedding(result.textoLibre));
     setStep(STEP_NFC);
     // Patrón correcto → lanzar el lector NFC directamente, sin botón intermedio
     setTimeout(() => handleReadNfc(), 350);
@@ -210,6 +215,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
             <DataRow label="Número"      value={parsed.numero} theme={theme} />
             <DataRow label="Vencimiento" value={parsed.fecha}  theme={theme} />
             <DataRow label="ID firmante" value={parsed.id}     theme={theme} />
+            <DataRow label="Rostro" value={faceEmbedding ? `✓ incluido (${faceEmbedding.length} pts)` : 'sin datos faciales'} theme={theme} />
           </View>
           <View style={[styles.nfcCard, { backgroundColor: theme.bgCard, borderColor: theme.bgBorder }]}>
             <Icon name="nfc" size={rs(44)} color={theme.success} />
@@ -258,6 +264,7 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
             {resultado.firmante && <DataRow label="Firmado por" value={resultado.firmante.label} theme={theme} />}
             {resultado.address  && <DataRow label="Address"    value={resultado.address.slice(0,18)+'...'} theme={theme} />}
             <DataRow label="Detalle"   value={resultado.detalle} theme={theme} />
+            {faceEmbedding && <DataRow label="Rostro" value={`✓ ${faceEmbedding.length} puntos faciales`} theme={theme} />}
           </View>
 
           <View style={styles.doneBtns}>
