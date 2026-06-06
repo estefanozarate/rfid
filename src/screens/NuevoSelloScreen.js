@@ -150,7 +150,11 @@ const NuevoSelloScreen = ({ navigation }) => {
     if (nfcStatus === 'success') setStep(STEP_DONE);
   };
 
-  const handleVerSellos  = () => navigation.getParent()?.navigate('SellarTab', { screen: 'Sellos' });
+  const handleVerSellos = () => {
+    // Subir hasta el Tab Navigator (puede estar en InicioStack o SellarStack)
+    const tabNav = navigation.getParent()?.getParent?.() || navigation.getParent();
+    tabNav?.navigate('SellarTab', { screen: 'Sellos' });
+  };
   const handleNuevoSello = () => {
     setStep(STEP_SCAN); setScanned(false); setParsed(null);
     setPin(''); setSignError(''); setNfcStatus('waiting');

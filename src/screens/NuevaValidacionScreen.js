@@ -127,8 +127,10 @@ const NuevaValidacionScreen = ({ navigation, route }) => {
     if (resultado) setStep(STEP_RESULT);
   };
 
-  const handleVerValidaciones = () =>
-    navigation.getParent()?.navigate('ValidarTab', { screen: 'Validaciones' });
+  const handleVerValidaciones = () => {
+    const tabNav = navigation.getParent()?.getParent?.() || navigation.getParent();
+    tabNav?.navigate('ValidarTab', { screen: 'Validaciones' });
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
